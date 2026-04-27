@@ -1,0 +1,46 @@
+# Secrets and local-only config
+.env
+.env.*
+!.env.example
+*.local
+!dotfiles/bashrc.local
+secrets/
+auth-keys/
+*.pem
+*.key
+
+# OS and editor cruft
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*~
+
+# Logs and backups
+*.log
+logs/
+*.bak
+*.bak-*
+.dotfiles-backup-*
+
+# Large blobs that do not belong in a config repo
+*.gguf
+*.safetensors
+*.bin
+*.pt
+*.onnx
+*.iso
+*.vhdx
+*.tar
+*.tar.gz
+*.zip
+
+# Service data and model directories
+data/
+models/
+backups/
+
+# Compose env (the example file is tracked)
+docker/.env
+docker/**/.env

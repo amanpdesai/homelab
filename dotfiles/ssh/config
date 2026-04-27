@@ -1,0 +1,15 @@
+# Base SSH client config. Layer host-specific entries below.
+
+Host *
+	ServerAliveInterval 30
+	ServerAliveCountMax 6
+	HashKnownHosts no
+	AddKeysToAgent yes
+	IdentitiesOnly yes
+
+# Example: connect to this box from another machine via Tailscale.
+# Replace `homelab` with the MagicDNS hostname.
+# Host homelab
+#	HostName homelab.tailxxxx.ts.net
+#	User aman
+#	IdentityFile ~/.ssh/id_ed25519

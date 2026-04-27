@@ -1,0 +1,38 @@
+# Copied to ~/.gitconfig by 01-link-dotfiles.sh on first run only.
+# Edit user.name and user.email after install.
+
+[user]
+	name  = YOUR NAME
+	email = you@example.com
+
+[init]
+	defaultBranch = main
+
+[pull]
+	rebase = false
+
+[push]
+	default = simple
+	autoSetupRemote = true
+
+[fetch]
+	prune = true
+
+[rebase]
+	autoStash = true
+
+[diff]
+	algorithm = histogram
+	colorMoved = default
+
+[color]
+	ui = auto
+
+[alias]
+	st       = status -sb
+	co       = checkout
+	br       = branch
+	cm       = commit -m
+	amend    = commit --amend --no-edit
+	lg       = log --oneline --graph --decorate --all -30
+	unstage  = reset HEAD --

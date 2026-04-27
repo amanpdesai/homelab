@@ -1,0 +1,19 @@
+* text=auto eol=lf
+
+# Shell scripts must be LF or bash will not run them inside WSL.
+*.sh         text eol=lf
+*.bash       text eol=lf
+Makefile     text eol=lf
+*.conf       text eol=lf
+*.yaml       text eol=lf
+*.yml        text eol=lf
+
+# Windows-side scripts use CRLF.
+*.ps1        text eol=crlf
+*.cmd        text eol=crlf
+*.bat        text eol=crlf
+
+# Binary
+*.png  binary
+*.jpg  binary
+*.ico  binary

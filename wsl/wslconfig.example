@@ -1,0 +1,38 @@
+# Deployed by scripts/windows/00-prereqs.ps1 to %UserProfile%\.wslconfig.
+# Applies to all WSL2 distros on this Windows host.
+# Run `wsl --shutdown` after edits so the next start picks up changes.
+# Reference: https://learn.microsoft.com/en-us/windows/wsl/wsl-config
+
+[wsl2]
+# Cap RAM so games are not starved. Tune up if dev workloads need more.
+memory=16GB
+
+# Box has 14C/20T. Leave plenty for Windows and games.
+processors=12
+
+# Swap on a sparse vhdx; only grows when used.
+swap=8GB
+swapFile=C:\\wsl-swap.vhdx
+
+# Mirrored networking shares the Windows network stack with WSL2 so
+# Tailscale on Windows can reach WSL2 ports directly. Requires Win11 22H2+.
+networkingMode=mirrored
+firewall=true
+dnsTunneling=true
+autoProxy=true
+
+# Useful for nested Docker, k8s playgrounds, etc.
+nestedVirtualization=true
+
+# Wayland surface for occasional GUI apps. Harmless if unused.
+guiApplications=true
+
+[experimental]
+# Reclaim memory back to Windows when WSL idles. "gradual" is the safe default.
+autoMemoryReclaim=gradual
+
+# Sparse vhdx so the WSL disk image shrinks when files are deleted.
+sparseVhd=true
+
+# Allow Windows to reach WSL services on 127.0.0.1.
+hostAddressLoopback=true

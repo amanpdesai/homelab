@@ -1,0 +1,35 @@
+# Local LLM server.
+# GPU passthrough via the NVIDIA Container Toolkit (installed by
+# scripts/wsl/02-install-docker.sh).
+#
+# Usage:
+#   make ollama-up
+#   docker compose -f docker/ollama/compose.yaml exec ollama ollama pull llama3.1:8b-instruct-q4_K_M
+#
+# The 8 GB VRAM on the 4060 Ti comfortably fits Q4 quantized 7B-class
+# models. Stop the stack before launching a game (`make ollama-down`).
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    restart: unless-stopped
+    ports:
+      # Bind to localhost only. Tailscale handles remote access via the
+      # Windows host; do not expose this port to the world.
+      - "127.0.0.1:11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    environment:
+      - OLLAMA_KEEP_ALIVE=5m
+      - OLLAMA_HOST=0.0.0.0
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+volumes:
+  ollama-data:

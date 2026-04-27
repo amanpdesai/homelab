@@ -1,0 +1,57 @@
+# Sourced from ~/.bashrc by 01-link-dotfiles.sh.
+# Safe to re-source.
+
+# History
+export HISTSIZE=50000
+export HISTFILESIZE=100000
+export HISTCONTROL=ignoreboth:erasedups
+export HISTTIMEFORMAT='%F %T  '
+shopt -s histappend cmdhist 2>/dev/null
+
+# Editor and pager
+export EDITOR=vim
+export VISUAL=vim
+export PAGER=less
+export LESS='-R -i -M -W -z-4'
+
+# PATH
+export PATH="$HOME/.local/bin:$HOME/bin:$PATH"
+
+# Homelab paths
+export SRV="$HOME/srv"
+export HOMELAB="$SRV/homelab"
+
+# Aliases
+alias ll='ls -alFh --color=auto'
+alias la='ls -A --color=auto'
+alias l='ls -CF --color=auto'
+alias grep='grep --color=auto'
+alias ..='cd ..'
+alias ...='cd ../..'
+alias g=git
+alias gs='git status -sb'
+alias gd='git diff'
+alias gl='git log --oneline --graph --decorate -20'
+alias d=docker
+alias dc='docker compose'
+alias dps='docker ps --format "table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}"'
+
+# tmux helper: attach to or create a named session
+tm() {
+  local name="${1:-main}"
+  tmux new-session -A -s "$name"
+}
+
+# Auto-attach to "main" when SSH-ing in (skip if already in tmux or non-interactive)
+if [ -n "${SSH_CONNECTION:-}" ] && [ -z "${TMUX:-}" ] && [[ $- == *i* ]]; then
+  tm main
+fi
+
+# Prompt: user@host:cwd (git branch) $
+__hl_git_branch() {
+  git rev-parse --is-inside-work-tree >/dev/null 2>&1 || return
+  local b
+  b=$(git symbolic-ref --short HEAD 2>/dev/null) || b=$(git rev-parse --short HEAD 2>/dev/null)
+  [ -n "$b" ] && printf ' (%s)' "$b"
+}
+PS1='\[\e[1;34m\]\u@\h\[\e[0m\]:\[\e[1;36m\]\w\[\e[33m\]$(__hl_git_branch)\[\e[0m\]\$ '
