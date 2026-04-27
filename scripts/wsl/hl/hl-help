@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# hl help -- cheatsheet
+HL_BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$HL_BIN_DIR/lib.sh"
+
+cat <<EOF
+${C_BOLD}hl${C_RESET} -- homelab terminal manager
+
+  Run ${C_BOLD}hl${C_RESET} bare for an interactive menu, or call subcommands directly.
+  Most commands accept ${C_DIM}-h${C_RESET} for per-command help.
+
+${C_BOLD}Status and info${C_RESET}
+  hl status [--motd]            host + GPU + tailnet + services snapshot
+  hl version                    git rev of the homelab repo this hl runs from
+  hl help                       this cheatsheet
+
+${C_BOLD}Compose stacks (services)${C_RESET}
+  hl ps                         list every stack and its containers
+  hl up      [stack]            docker compose up -d
+  hl down    [stack]            docker compose down
+  hl restart [stack]            stop + start
+  hl logs    [stack|container]  tail + follow logs
+  hl exec    [container]        drop into a shell inside a container
+
+${C_BOLD}GPU and Ollama${C_RESET}
+  hl gpu                        nvidia-smi pretty-printed
+  hl ollama [list|pull|run|evict]   manage Ollama models
+  hl game-on                    stop every GPU-tagged stack (gaming mode on)
+  hl game-off                   start them back up
+
+${C_BOLD}Operations${C_RESET}
+  hl net                        tailnet, listening ports, connectivity check
+  hl disk                       df + biggest dirs under ~/srv (then ncdu)
+  hl dash                       open the tmux monitoring dashboard
+  hl update [--prune]           apt upgrade + compose image refresh
+
+${C_BOLD}Tips${C_RESET}
+  - Repo:       $HL_REPO
+  - Stacks live in \$HL_REPO/docker/<name>/compose.yaml
+  - A stack is "GPU" if its compose has driver: nvidia or x-homelab-gpu: true
+  - All output is plain ANSI; ${C_DIM}--plain${C_RESET} disables colors.
+
+${C_BOLD}Phone (Termius)${C_RESET}
+  - Output respects narrow terminals -- use \`hl status\` first to confirm health.
+  - In tmux, use Ctrl-a z to zoom a pane to fullscreen, Ctrl-a d to detach.
+  - Mouse mode is on by default: tap a pane in tmux to focus it.
+EOF

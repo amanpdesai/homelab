@@ -44,6 +44,7 @@ homelab/
 |   +-- wsl/                bash, run inside WSL2 as your user
 |-- docker/                 compose stacks, one directory per service
 |-- docs/                   long-form docs: architecture, decisions, runbook, troubleshooting
+|-- homelab.ps1             Windows-side start/stop/status wrapper
 |-- Makefile                entry points for common ops
 |-- .gitignore
 +-- README.md
@@ -81,6 +82,12 @@ cd $env:USERPROFILE\homelab
 # Tailscale on the Windows host
 .\scripts\windows\01-tailscale.ps1
 tailscale up
+
+# Day-to-day WSL instance control from the repo root
+.\homelab.ps1 status
+.\homelab.ps1 start
+.\homelab.ps1 stop
+.\homelab.ps1 update
 ```
 
 ### 2. Inside WSL2 Ubuntu
@@ -93,6 +100,7 @@ cd ~/srv/homelab
 make bootstrap       # base packages, sshd, ~/srv layout
 make dotfiles        # symlink tmux, bash, git, inputrc, ssh config
 make docker          # docker engine plus NVIDIA container toolkit
+make tui             # install hl terminal manager and compact login MOTD
 # Optional, only if mirrored networking cannot reach WSL services:
 # make tailscale-wsl
 ```
@@ -128,7 +136,7 @@ that `/etc/wsl.conf`'s `systemd=true` takes effect.
 1. Fresh Windows install. Clone this repo into `%UserProfile%\homelab`.
 2. Run `scripts\windows\00-prereqs.ps1`. Reboot if asked, then re-run.
 3. Run `scripts\windows\01-tailscale.ps1`, then `tailscale up`.
-4. Install Ubuntu in WSL, finish the first-run setup, then run the three
+4. Install Ubuntu in WSL, finish the first-run setup, then run the WSL
    `make` steps above.
 5. Restore `~/srv/data` and `~/srv/models` from your backup target.
 6. Append authorized public keys to `~/.ssh/authorized_keys`.
@@ -150,6 +158,7 @@ Long-form context lives in [`docs/`](docs/README.md):
 - [`docs/networking.md`](docs/networking.md) -- mirrored networking and Tailscale wiring
 - [`docs/gpu-and-llm.md`](docs/gpu-and-llm.md) -- VRAM budget and Ollama notes
 - [`docs/operations.md`](docs/operations.md) -- runbook for common ops
+- [`docs/management-cli.md`](docs/management-cli.md) -- `hl` terminal manager
 - [`docs/troubleshooting.md`](docs/troubleshooting.md) -- symptom -> fix
 - [`docs/inventory.md`](docs/inventory.md) -- living state snapshot
 

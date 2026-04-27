@@ -71,4 +71,5 @@ ok "Bootstrap complete."
 echo
 echo "Next: make dotfiles"
 echo "      make docker"
+echo "      make tui"
 echo "      make tailscale-wsl   (only if mirrored networking cannot reach WSL)"

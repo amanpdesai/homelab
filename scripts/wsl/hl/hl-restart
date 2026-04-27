@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# hl restart [stack]  -- restart a compose stack.
+
+set -euo pipefail
+HL_BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$HL_BIN_DIR/lib.sh"
+
+case "${1:-}" in
+	-h|--help)
+		cat <<EOF
+hl restart [stack]
+  Restart all containers in a compose stack.
+  Without a stack name, pick from discovered stacks.
+EOF
+		exit 0
+		;;
+esac
+
+hl_docker_ready || hl_die "docker is not available"
+
+stack=$(hl_resolve_stack "${1:-}") || hl_die "no stack selected"
+cf=$(hl_stack_path "$stack")       || hl_die "stack not found: $stack"
+
+hl_info "restarting stack '$stack'"
+docker compose -f "$cf" restart
+hl_ok "stack '$stack' restarted"
+docker compose -f "$cf" ps --format 'table {{.Name}}\t{{.State}}\t{{.Status}}\t{{.Ports}}' | sed 's/^/  /'

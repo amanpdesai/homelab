@@ -24,7 +24,7 @@ running. Realistic free VRAM headroom for an LLM while the desktop is
 Hard rule: stop GPU-heavy server workloads before launching a game.
 
 ```bash
-make ollama-down            # stop the container
+hl game-on                  # stop every GPU-tagged stack
 # or, gentler -- let Ollama's keep-alive expire:
 #   OLLAMA_KEEP_ALIVE=5m means the model unloads 5 min after last use
 ```

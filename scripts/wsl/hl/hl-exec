@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# hl exec [container] [-- cmd args...]  -- shell into a container.
+# Tries bash first, then sh.
+
+set -euo pipefail
+HL_BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$HL_BIN_DIR/lib.sh"
+
+case "${1:-}" in
+	-h|--help)
+		cat <<EOF
+hl exec [container] [-- cmd args...]
+  Open bash or sh in a running container, or run an explicit command.
+  Without a container name, pick from running containers.
+EOF
+		exit 0
+		;;
+esac
+
+hl_docker_ready || hl_die "docker is not available"
+
+target="${1:-}"; shift || true
+[ "${1:-}" = "--" ] && shift
+
+if [ -z "$target" ]; then
+	target=$(docker ps --format '{{.Names}}' | hl_pick "container")
+fi
+[ -z "${target:-}" ] && hl_die "no container selected"
+
+if [ "$#" -gt 0 ]; then
+	exec docker exec -it "$target" "$@"
+fi
+
+# No command given -- pick the best available shell.
+if docker exec "$target" bash -lc 'true' >/dev/null 2>&1; then
+	exec docker exec -it "$target" bash -l
+elif docker exec "$target" sh -lc 'true' >/dev/null 2>&1; then
+	exec docker exec -it "$target" sh -l
+else
+	hl_die "no usable shell found in $target"
+fi

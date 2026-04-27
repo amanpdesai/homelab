@@ -2,7 +2,7 @@
 
 .DEFAULT_GOAL := help
 
-.PHONY: help bootstrap dotfiles docker tailscale-wsl ollama-up ollama-down ollama-logs status
+.PHONY: help bootstrap dotfiles docker tailscale-wsl tui ollama-up ollama-down ollama-logs status
 
 help:  ## Show this help
 	@awk 'BEGIN {FS = ":.*##"} /^[a-zA-Z_-]+:.*?##/ { printf "  %-16s %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
@@ -18,6 +18,9 @@ docker:  ## Install Docker Engine and NVIDIA toolkit (run inside WSL)
 
 tailscale-wsl:  ## Install Tailscale inside WSL (only if needed)
 	bash scripts/wsl/03-tailscale.sh
+
+tui:  ## Install hl (terminal manager) + deps + MOTD
+	bash scripts/wsl/05-install-tui.sh
 
 ollama-up:  ## Start the Ollama compose stack
 	docker compose -f docker/ollama/compose.yaml up -d

@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# hl ps -- list every compose stack and its containers.
+
+set -euo pipefail
+HL_BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$HL_BIN_DIR/lib.sh"
+
+case "${1:-}" in
+	-h|--help)
+		cat <<EOF
+hl ps
+  List compose stacks, their containers, and standalone containers.
+EOF
+		exit 0
+		;;
+esac
+
+if ! hl_docker_ready; then
+	hl_die "docker is not available -- try 'sudo systemctl start docker' or run scripts/wsl/02-install-docker.sh"
+fi
+
+hl_h1 "Compose stacks"
+any=0
+while read -r name; do
+	[ -z "$name" ] && continue
+	any=1
+	cf=$(hl_stack_path "$name") || continue
+	gpu_marker=""; hl_stack_is_gpu "$name" && gpu_marker=" ${C_MAGENTA}[gpu]${C_RESET}"
+	printf "\n  %s%s%s%s   %s%s%s\n" "$C_BOLD" "$name" "$C_RESET" "$gpu_marker" "$C_DIM" "$cf" "$C_RESET"
+	docker compose -f "$cf" ps --format 'table {{.Name}}\t{{.Service}}\t{{.State}}\t{{.Status}}\t{{.Ports}}' \
+	  2>/dev/null | sed 's/^/    /' || true
+done < <(hl_stacks)
+
+if [ "$any" -eq 0 ]; then
+	printf "  %sno compose stacks under %s/docker yet%s\n" "$C_DIM" "$HL_REPO" "$C_RESET"
+fi
+
+# List standalone containers (no compose project label).
+echo
+hl_h1 "Standalone containers (not in a stack)"
+standalone=$(docker ps -a --format '{{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}\t{{.Label "com.docker.compose.project"}}' 2>/dev/null \
+	| awk -F'\t' '$5=="" {printf "  %-22s  %-30s  %-25s  %s\n", $1, $2, $3, $4}')
+if [ -n "$standalone" ]; then
+	printf "  %-22s  %-30s  %-25s  %s\n" "NAME" "IMAGE" "STATUS" "PORTS"
+	printf "%s\n" "$standalone"
+else
+	printf "  %snone%s\n" "$C_DIM" "$C_RESET"
+fi

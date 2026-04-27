@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# hl down [stack]  -- docker compose down for a stack.
+
+set -euo pipefail
+HL_BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$HL_BIN_DIR/lib.sh"
+
+case "${1:-}" in
+	-h|--help)
+		cat <<EOF
+hl down [stack]
+  Stop a compose stack with docker compose down.
+  Without a stack name, pick from discovered stacks.
+EOF
+		exit 0
+		;;
+esac
+
+hl_docker_ready || hl_die "docker is not available"
+
+stack=$(hl_resolve_stack "${1:-}") || hl_die "no stack selected"
+cf=$(hl_stack_path "$stack")       || hl_die "stack not found: $stack"
+
+hl_info "stopping stack '$stack'"
+docker compose -f "$cf" down
+hl_ok "stack '$stack' is down"

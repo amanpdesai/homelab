@@ -36,16 +36,13 @@ alias d=docker
 alias dc='docker compose'
 alias dps='docker ps --format "table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}"'
 
-# tmux helper: attach to or create a named session
+# tmux helper: attach to or create a named session.
+# Run `tm` (or `tm <name>`) manually when you want a persistent session.
+# We deliberately do not auto-attach on SSH login -- standard instance feel.
 tm() {
   local name="${1:-main}"
   tmux new-session -A -s "$name"
 }
-
-# Auto-attach to "main" when SSH-ing in (skip if already in tmux or non-interactive)
-if [ -n "${SSH_CONNECTION:-}" ] && [ -z "${TMUX:-}" ] && [[ $- == *i* ]]; then
-  tm main
-fi
 
 # Prompt: user@host:cwd (git branch) $
 __hl_git_branch() {

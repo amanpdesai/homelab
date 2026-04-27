@@ -1,0 +1,138 @@
+#!/usr/bin/env bash
+# hl-status -- snapshot of host + GPU + tailnet + services.
+# --motd       short instance-style banner (used by /etc/update-motd.d)
+# --plain      no colors
+# --no-services  skip the services block
+
+set -euo pipefail
+HL_BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib.sh
+. "$HL_BIN_DIR/lib.sh"
+
+mode="full"
+show_services=1
+for a in "$@"; do
+	case "$a" in
+		--motd)        mode="motd" ;;
+		--plain)       export HL_NO_COLOR=1 ;;
+		--no-services) show_services=0 ;;
+		-h|--help)
+			cat <<EOF
+hl status [--motd] [--plain] [--no-services]
+  default        full output: host, GPU, tailnet, services
+  --motd         short instance-style banner
+  --plain        no colors
+  --no-services  skip the services block
+EOF
+			exit 0 ;;
+	esac
+done
+[ "${HL_NO_COLOR:-0}" = "1" ] && . "$HL_BIN_DIR/lib.sh"
+
+# ---- gather --------------------------------------------------------
+host="$(hostname)"
+distro="Linux"
+[ -f /etc/os-release ] && . /etc/os-release && distro="${PRETTY_NAME:-Linux}"
+uptime_pretty="$(uptime -p 2>/dev/null | sed 's/^up //' || echo unknown)"
+now="$(date '+%a %d %b %Y %H:%M %Z')"
+load="$(awk '{print $1", "$2", "$3}' /proc/loadavg 2>/dev/null || echo "?")"
+
+mem_total_kb=$(awk '/^MemTotal:/{print $2; exit}'     /proc/meminfo 2>/dev/null || echo 1)
+mem_avail_kb=$(awk '/^MemAvailable:/{print $2; exit}' /proc/meminfo 2>/dev/null || echo 0)
+mem_total_gb=$(awk -v t="$mem_total_kb"                 'BEGIN{printf "%.1f", t/1024/1024}')
+mem_used_gb=$( awk -v t="$mem_total_kb" -v a="$mem_avail_kb" 'BEGIN{printf "%.1f", (t-a)/1024/1024}')
+mem_pct=$(     awk -v t="$mem_total_kb" -v a="$mem_avail_kb" 'BEGIN{printf "%.0f", (t-a)*100/t}')
+
+d_size="?"; d_used="?"; d_pct="?"
+if df_out=$(df -BG --output=size,used,pcent / 2>/dev/null | awk 'NR==2{print $1, $2, $3}'); then
+	d_size=$(echo "$df_out" | awk '{gsub("G","",$1); print $1}')
+	d_used=$(echo "$df_out" | awk '{gsub("G","",$2); print $2}')
+	d_pct=$( echo "$df_out" | awk '{gsub("%","",$3); print $3}')
+fi
+
+srv_used="?"
+if [ -d "$HOME/srv" ]; then
+	srv_used=$(du -sBG "$HOME/srv" 2>/dev/null | awk '{gsub("G","",$1); print $1}' || echo "?")
+	[ -z "$srv_used" ] && srv_used="?"
+fi
+
+gpu_line=""
+if hl_have_gpu; then
+	gpu_csv=$(nvidia-smi --query-gpu=name,memory.total,memory.used,utilization.gpu,temperature.gpu --format=csv,noheader,nounits 2>/dev/null | head -1 || true)
+	if [ -n "$gpu_csv" ]; then
+		IFS=, read -r g_name g_total g_used g_util g_temp <<<"$gpu_csv"
+		g_name="${g_name# }"; g_total="${g_total# }"; g_used="${g_used# }"; g_util="${g_util# }"; g_temp="${g_temp# }"
+		g_total_gb=$(awk -v t="${g_total:-0}" 'BEGIN{printf "%.1f", t/1024}')
+		g_used_gb=$( awk -v u="${g_used:-0}"  'BEGIN{printf "%.1f", u/1024}')
+		gpu_line="${g_name}, ${g_used_gb} / ${g_total_gb} GB VRAM (${g_util:-?}%), ${g_temp:-?} C"
+	fi
+fi
+
+ts_line=""
+if hl_have_ts; then
+	ts_ip=$(tailscale ip -4 2>/dev/null | head -1 || true)
+	if [ -n "${ts_ip:-}" ]; then
+		ts_self=$(tailscale status --self=true --peers=false 2>/dev/null | head -1 || true)
+		ts_host=$(echo "$ts_self" | awk '{print $2}')
+		ts_line="${ts_ip}  (${ts_host:-unknown})"
+	else
+		ts_line="not connected"
+	fi
+fi
+
+# ---- render --------------------------------------------------------
+render_motd() {
+	hl_dbl
+	printf "  %s%s%s   %s   up %s   %s\n" "$C_BOLD" "$host" "$C_RESET" "$distro" "$uptime_pretty" "$now"
+	hl_rule
+	printf "  %-12s %s\n"                  "Load:"       "$load"
+	printf "  %-12s %s / %s GB (%s%%)\n"   "Memory:"     "$mem_used_gb" "$mem_total_gb" "$mem_pct"
+	printf "  %-12s %s / %s GB (%s%%)\n"   "Disk /:"     "$d_used"      "$d_size"       "$d_pct"
+	printf "  %-12s %s GB\n"               "Disk ~/srv:" "$srv_used"
+	[ -n "$gpu_line" ] && printf "  %-12s %s\n" "GPU:"       "$gpu_line"
+	[ -n "$ts_line"  ] && printf "  %-12s %s\n" "Tailscale:" "$ts_line"
+	hl_dbl
+	printf "  %sType '%shl%s%s' for the menu, or '%shl help%s%s' for a cheatsheet.%s\n" \
+	       "$C_DIM" "$C_BOLD" "$C_RESET" "$C_DIM" "$C_BOLD" "$C_RESET" "$C_DIM" "$C_RESET"
+}
+
+render_services() {
+	echo
+	hl_h1 "Services"
+	if ! hl_have_docker; then
+		printf "  %sdocker not installed%s\n" "$C_DIM" "$C_RESET"
+		return
+	fi
+	if ! docker info >/dev/null 2>&1; then
+		printf "  %sdocker daemon not reachable -- try: sudo systemctl start docker%s\n" "$C_DIM" "$C_RESET"
+		return
+	fi
+	local count=0 name cf running total tag gpu_marker
+	while read -r name; do
+		[ -z "$name" ] && continue
+		cf=$(hl_stack_path "$name") || continue
+		running=$(( $(docker compose -f "$cf" ps --status running -q 2>/dev/null | wc -l) + 0 ))
+		total=$((   $(docker compose -f "$cf" ps -aq                 2>/dev/null | wc -l) + 0 ))
+		gpu_marker=""
+		hl_stack_is_gpu "$name" && gpu_marker=" ${C_MAGENTA}gpu${C_RESET}"
+		if   [ "$total" -eq 0 ];          then tag=$(hl_tag off)
+		elif [ "$running" -lt "$total" ]; then tag=$(hl_tag warn)
+		else                                   tag=$(hl_tag ok)
+		fi
+		printf "  %s  %-20s %d/%d running%s\n" "$tag" "$name" "$running" "$total" "$gpu_marker"
+		count=$((count+1))
+	done < <(hl_stacks)
+	if [ "$count" -eq 0 ]; then
+		printf "  %sno compose stacks defined under %s/docker yet%s\n" "$C_DIM" "$HL_REPO" "$C_RESET"
+	fi
+}
+
+case "$mode" in
+	motd) render_motd ;;
+	full)
+		render_motd
+		if [ "$show_services" = "1" ]; then
+			render_services
+		fi
+		;;
+esac

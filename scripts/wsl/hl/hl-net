@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+# hl net  -- network snapshot: tailscale, listening ports, connectivity.
+
+set -euo pipefail
+HL_BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$HL_BIN_DIR/lib.sh"
+
+case "${1:-}" in
+	-h|--help)
+		cat <<EOF
+hl net
+  Show Tailscale state, listening ports, and basic connectivity checks.
+EOF
+		exit 0
+		;;
+esac
+
+# ---- tailscale ------------------------------------------------------
+hl_h1 "Tailscale"
+if hl_have_ts; then
+	if tailscale status >/dev/null 2>&1; then
+		ts_ip=$(tailscale ip -4 2>/dev/null | head -1 || true)
+		ts_self=$(tailscale status --self=true --peers=false 2>/dev/null | head -1 || true)
+		printf "  ip:           %s\n" "${ts_ip:-?}"
+		printf "  hostname:     %s\n" "$(echo "$ts_self" | awk '{print $2}')"
+		echo
+		printf "  %sPeers:%s\n" "$C_DIM" "$C_RESET"
+		tailscale status 2>/dev/null | tail -n +2 | sed 's/^/    /' || true
+	else
+		hl_warn "tailscaled installed but not connected (try: sudo tailscale up)"
+	fi
+else
+	printf "  %stailscale is not installed inside WSL.%s\n" "$C_DIM" "$C_RESET"
+	printf "  %sDefault path: tailscale runs on the Windows host (mirrored networking).%s\n" "$C_DIM" "$C_RESET"
+fi
+
+# ---- listening ports -----------------------------------------------
+echo
+hl_h1 "Listening ports"
+if command -v ss >/dev/null 2>&1; then
+	{
+		echo "PROTO LOCAL_ADDR PROCESS"
+		ss -tlnpH 2>/dev/null | awk '{
+			split($4, a, ":"); port=a[length(a)]; addr=$4;
+			match($0, /users:\(\("[^"]+"/);
+			if (RSTART) { proc=substr($0, RSTART+8); sub(/".*$/, "", proc) } else proc="?";
+			printf "tcp %s %s\n", addr, proc
+		}'
+	} | column -t | sed 's/^/  /'
+else
+	printf "  %s'ss' not found -- install iproute2%s\n" "$C_DIM" "$C_RESET"
+fi
+
+# ---- connectivity --------------------------------------------------
+echo
+hl_h1 "Connectivity"
+check() {
+	local label="$1" target="$2"
+	if ping -W 1 -c 1 -q "$target" >/dev/null 2>&1; then
+		printf "  %s  %-20s %s\n" "$(hl_tag ok)"   "$label" "$target"
+	else
+		printf "  %s  %-20s %s\n" "$(hl_tag err)"  "$label" "$target"
+	fi
+}
+check "internet"   1.1.1.1
+check "dns"        github.com
+if hl_have_ts && tailscale status >/dev/null 2>&1; then
+	check "tailnet derp" "derp1.tailscale.com"
+fi

@@ -15,6 +15,9 @@ $ErrorActionPreference = "Stop"
 function Info($m) { Write-Host "==> $m"  -ForegroundColor Cyan }
 function Ok($m)   { Write-Host "[ok]  $m" -ForegroundColor Green }
 function Die($m)  { Write-Host "[err] $m" -ForegroundColor Red; exit 1 }
+function Assert-LastExit($m) {
+	if ($LASTEXITCODE -ne 0) { Die $m }
+}
 
 $isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 if (-not $isAdmin) { Die "Run this script in an Administrator PowerShell." }
@@ -26,13 +29,15 @@ if (Get-Command tailscale -ErrorAction SilentlyContinue) {
 	if (Get-Command winget -ErrorAction SilentlyContinue) {
 		Info "Installing Tailscale via winget"
 		winget install --id Tailscale.Tailscale -e --accept-source-agreements --accept-package-agreements
+		Assert-LastExit "winget failed to install Tailscale."
 	} else {
 		$msiUrl = "https://pkgs.tailscale.com/stable/tailscale-setup-latest.msi"
 		$msi    = Join-Path $env:TEMP "tailscale-setup.msi"
 		Info "Downloading Tailscale installer to $msi"
 		Invoke-WebRequest -Uri $msiUrl -OutFile $msi -UseBasicParsing
 		Info "Running silent install"
-		Start-Process msiexec.exe -ArgumentList "/i `"$msi`" /quiet /norestart" -Wait
+		$p = Start-Process msiexec.exe -ArgumentList "/i `"$msi`" /quiet /norestart" -Wait -PassThru
+		if ($p.ExitCode -ne 0) { Die "Tailscale MSI install failed with exit code $($p.ExitCode)." }
 	}
 	Ok "Tailscale installed."
 }

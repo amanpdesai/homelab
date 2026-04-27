@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+# hl dash -- tmux monitoring dashboard.
+#
+# Layout:
+#   window 0 "monitor"   four panes: btop / GPU watch / docker watch / tailnet watch
+#   window 1 "shell"     a free shell to type hl commands in
+#   window 2 "docker"    full-screen lazydocker (if installed)
+#
+# Idempotent: if the session exists, just attach.
+
+set -euo pipefail
+HL_BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$HL_BIN_DIR/lib.sh"
+
+case "${1:-}" in
+	-h|--help)
+		cat <<EOF
+hl dash
+  Open or attach to the 'home' tmux monitoring dashboard.
+EOF
+		exit 0
+		;;
+esac
+
+command -v tmux >/dev/null 2>&1 || hl_die "tmux is required (apt-get install tmux)"
+
+SESSION="home"
+
+if tmux has-session -t "$SESSION" 2>/dev/null; then
+	hl_info "attaching to existing '$SESSION' session"
+	exec tmux attach -t "$SESSION"
+fi
+
+hl_info "building '$SESSION' tmux session"
+
+# pick best system monitor
+if command -v btop  >/dev/null 2>&1; then SYSMON=btop
+elif command -v htop >/dev/null 2>&1; then SYSMON=htop
+else                                       SYSMON=top
+fi
+
+if hl_have_gpu; then
+	GPU_CMD='watch -t -n 2 "nvidia-smi --query-gpu=name,memory.used,memory.total,utilization.gpu,temperature.gpu --format=csv,noheader && echo && echo --- compute apps --- && nvidia-smi --query-compute-apps=pid,process_name,used_memory --format=csv,noheader 2>/dev/null"'
+else
+	GPU_CMD='watch -t -n 10 "echo nvidia-smi not found; echo; echo GPU pane will populate after the NVIDIA WSL driver is available."'
+fi
+DOCKER_CMD='watch -t -n 5 "docker ps --format \"table {{.Names}}\\t{{.Status}}\\t{{.Ports}}\""'
+if hl_have_ts; then
+	NET_CMD='watch -t -n 10 "tailscale status 2>/dev/null || echo tailscale not connected"'
+else
+	NET_CMD='watch -t -n 10 "ss -H -tlnp 2>/dev/null | head -20"'
+fi
+
+# build the session
+tmux new-session  -d -s "$SESSION" -n monitor
+tmux send-keys    -t "$SESSION:monitor.0" "$SYSMON" C-m
+
+tmux split-window -h -t "$SESSION:monitor.0"
+tmux send-keys    -t "$SESSION:monitor.1" "$GPU_CMD" C-m
+
+tmux split-window -v -t "$SESSION:monitor.1"
+tmux send-keys    -t "$SESSION:monitor.2" "$DOCKER_CMD" C-m
+
+tmux split-window -v -t "$SESSION:monitor.2"
+tmux send-keys    -t "$SESSION:monitor.3" "$NET_CMD" C-m
+
+# even out the right column
+tmux select-layout -t "$SESSION:monitor" main-vertical >/dev/null 2>&1 || true
+tmux resize-pane   -t "$SESSION:monitor.0" -x 60% 2>/dev/null || true
+
+# window 1: free shell
+tmux new-window   -t "$SESSION" -n shell
+tmux send-keys    -t "$SESSION:shell" 'clear; hl status' C-m
+
+# window 2: lazydocker, if installed
+if command -v lazydocker >/dev/null 2>&1; then
+	tmux new-window -t "$SESSION" -n docker 'lazydocker'
+fi
+
+tmux select-window -t "$SESSION:monitor"
+exec tmux attach   -t "$SESSION"

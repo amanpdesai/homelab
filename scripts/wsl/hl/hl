@@ -1,0 +1,93 @@
+#!/usr/bin/env bash
+# hl -- homelab terminal manager. Single entrypoint that dispatches to
+# sibling scripts named hl-<sub>. Symlinked to /usr/local/bin/hl.
+
+set -euo pipefail
+
+__hl_self="$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || echo "${BASH_SOURCE[0]}")"
+HL_BIN_DIR="$(cd "$(dirname "$__hl_self")" && pwd)"
+unset __hl_self
+# shellcheck source=lib.sh
+. "$HL_BIN_DIR/lib.sh"
+
+usage() {
+	cat <<EOF
+${C_BOLD}hl${C_RESET} -- homelab terminal manager
+
+  Usage:
+    hl                       interactive menu (fzf)
+    hl <subcommand> [args]   run a subcommand
+    hl help [topic]          cheatsheet
+    hl version
+
+  Subcommands:
+    ${C_BOLD}status${C_RESET} [--motd]      host + GPU + services snapshot
+    ${C_BOLD}ps${C_RESET}                    list compose stacks and containers
+    ${C_BOLD}up${C_RESET}        <stack>     start a stack
+    ${C_BOLD}down${C_RESET}      <stack>     stop a stack
+    ${C_BOLD}restart${C_RESET}   <stack>     restart a stack
+    ${C_BOLD}logs${C_RESET}      <name>      follow stack or container logs
+    ${C_BOLD}exec${C_RESET}      <container> drop into a shell in a container
+    ${C_BOLD}gpu${C_RESET}                   GPU + VRAM info
+    ${C_BOLD}ollama${C_RESET}    [sub]       manage Ollama models
+    ${C_BOLD}game-on${C_RESET}                stop GPU stacks (gaming mode)
+    ${C_BOLD}game-off${C_RESET}               start GPU stacks back up
+    ${C_BOLD}net${C_RESET}                   tailnet, listening ports, connectivity
+    ${C_BOLD}disk${C_RESET}                   disk usage, ncdu launcher
+    ${C_BOLD}dash${C_RESET}                   tmux monitoring dashboard
+    ${C_BOLD}update${C_RESET}                 apt upgrade + compose image refresh
+    ${C_BOLD}help${C_RESET} [topic]           cheatsheet
+    ${C_BOLD}version${C_RESET}                git rev of this hl
+EOF
+}
+
+# Curated menu list -- shown when hl is invoked with no args.
+__hl_menu_items=(
+	"status        host + GPU + services snapshot"
+	"ps            list compose stacks and containers"
+	"up            start a stack"
+	"down          stop a stack"
+	"restart       restart a stack"
+	"logs          follow stack or container logs"
+	"exec          drop into a shell in a container"
+	"gpu           GPU + VRAM info"
+	"ollama        manage Ollama models"
+	"game-on       stop GPU stacks (gaming mode)"
+	"game-off      start GPU stacks back up"
+	"net           tailnet, listening ports, connectivity"
+	"disk          disk usage, ncdu launcher"
+	"dash          tmux monitoring dashboard"
+	"update        apt upgrade + compose image refresh"
+	"help          cheatsheet"
+	"version       git rev"
+)
+
+menu() {
+	local choice sub
+	choice=$(printf "%s\n" "${__hl_menu_items[@]}" | hl_pick "hl")
+	[ -z "${choice:-}" ] && return 0
+	sub="${choice%% *}"
+	exec "$HL_BIN_DIR/hl-$sub"
+}
+
+main() {
+	if [ "$#" -eq 0 ]; then
+		if [ -t 1 ]; then menu; else usage; fi
+		return 0
+	fi
+	local sub="$1"; shift
+	case "$sub" in
+		-h|--help|help)    exec "$HL_BIN_DIR/hl-help"    "$@" ;;
+		-v|--version|version) exec "$HL_BIN_DIR/hl-version" "$@" ;;
+	esac
+	local cmd="$HL_BIN_DIR/hl-$sub"
+	if [ ! -x "$cmd" ]; then
+		hl_err "unknown subcommand: $sub"
+		echo
+		usage
+		exit 2
+	fi
+	exec "$cmd" "$@"
+}
+
+main "$@"

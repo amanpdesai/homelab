@@ -13,6 +13,7 @@ project after six months.
 | [networking.md](networking.md) | Mirrored WSL networking, Tailscale wiring, port flow, debug recipes. |
 | [gpu-and-llm.md](gpu-and-llm.md) | VRAM budget on the 4060 Ti, Ollama notes, gaming coexistence. |
 | [operations.md](operations.md) | Runbook for common ops: SSH, updates, restarts, adding services. |
+| [management-cli.md](management-cli.md) | `hl` terminal manager: status, services, GPU, dashboard, MOTD. |
 | [troubleshooting.md](troubleshooting.md) | Symptom -> diagnosis -> fix for the failure modes I have hit. |
 | [inventory.md](inventory.md) | Living snapshot of hardware, software, and pre-existing state. |
 

@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# hl version -- print the git rev of the homelab repo this hl was loaded from.
+HL_BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$HL_BIN_DIR/lib.sh"
+
+case "${1:-}" in
+	-h|--help)
+		cat <<EOF
+hl version
+  Print the git branch and revision of the homelab repo this hl runs from.
+EOF
+		exit 0
+		;;
+esac
+
+if git -C "$HL_REPO" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+	rev=$(git -C "$HL_REPO" rev-parse --short HEAD 2>/dev/null || echo unknown)
+	branch=$(git -C "$HL_REPO" symbolic-ref --short HEAD 2>/dev/null || echo detached)
+	dirty=""
+	if ! git -C "$HL_REPO" diff --quiet 2>/dev/null \
+	 || ! git -C "$HL_REPO" diff --cached --quiet 2>/dev/null; then
+		dirty=" (dirty)"
+	fi
+	printf "hl from %s%s%s @ %s%s\n" "$C_BOLD" "$branch" "$C_RESET" "$rev" "$dirty"
+else
+	printf "hl (no git info; HL_REPO=%s)\n" "$HL_REPO"
+fi

@@ -11,8 +11,8 @@
    `chmod 700 ~/.ssh && chmod 600 ~/.ssh/authorized_keys`
 4. From the new device on the tailnet:
    `ssh <wsl-user>@<magicdns-name>`
-5. The `bashrc.local` auto-attach sends you straight into the `main`
-   tmux session.
+5. The login banner prints a compact `hl status --motd` snapshot. Run
+   `tm main` if you want a persistent tmux session.
 
 ## Tmux quick reference
 
@@ -35,22 +35,37 @@ Convention: one tmux session per intent (`main`, `infra`,
 ## Updating things
 
 ```bash
-# WSL kernel (run from Windows, not WSL)
-wsl --update
+# WSL kernel plus in-distro updates (run from Windows)
+.\homelab.ps1 update
 
-# Ubuntu packages (inside WSL)
-sudo apt-get update && sudo apt-get upgrade -y
-sudo apt-get autoremove --purge -y
-
-# Docker images (inside WSL)
-docker compose -f docker/ollama/compose.yaml pull
-make ollama-down && make ollama-up
+# Ubuntu packages plus Docker compose images (inside WSL)
+hl update
 
 # Tailscale (inside WSL only if installed there)
 sudo tailscale update    # newer versions handle this automatically
 ```
 
 ## Restart things
+
+From Windows:
+
+```powershell
+# current state without opening an interactive shell
+.\homelab.ps1 status
+
+# start/stop/restart the WSL homelab distro
+.\homelab.ps1 start
+.\homelab.ps1 stop
+.\homelab.ps1 restart
+
+# open a normal WSL shell, or SSH through localhost
+.\homelab.ps1 shell
+.\homelab.ps1 ssh -User <wsl-user>
+```
+
+Under the hood this auto-selects `Ubuntu-24.04`, `Ubuntu`, or the first
+non-Docker WSL distro, then uses `wsl -d <distro>` to start it and
+`wsl --terminate <distro>` to stop it. It does not auto-attach tmux.
 
 ```bash
 # sshd (inside WSL)
@@ -62,8 +77,8 @@ sudo systemctl restart docker
 # the whole WSL VM (run from Windows)
 wsl --shutdown            # next command starts it again
 
-# specific distro only (run from Windows)
-wsl --terminate Ubuntu
+# specific distro only (run from Windows, if bypassing instance.ps1)
+wsl --terminate <distro>
 ```
 
 ## Reload config files
@@ -95,7 +110,7 @@ wsl --terminate Ubuntu
 
 ```bash
 # Stop heavy GPU workloads
-make ollama-down
+hl game-on
 # Optional, if you want WSL to give RAM back fully:
 wsl --shutdown    # in a Windows shell
 ```
@@ -103,8 +118,9 @@ wsl --shutdown    # in a Windows shell
 When done gaming, reattach:
 
 ```bash
-make ollama-up    # if it was stopped
-ssh <user>@<host> # auto-attaches to tmux 'main'
+ssh <user>@<host>
+hl game-off       # if GPU stacks were stopped
+tm main           # optional persistent shell
 ```
 
 ## Backups

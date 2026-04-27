@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# hl disk  -- disk usage. With --ncdu, launch ncdu in ~/srv.
+
+set -euo pipefail
+HL_BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$HL_BIN_DIR/lib.sh"
+
+run_ncdu=0
+target="$HOME/srv"
+for a in "$@"; do
+	case "$a" in
+		--ncdu)  run_ncdu=1 ;;
+		-h|--help) cat <<EOF; exit 0
+hl disk [--ncdu] [path]
+  Show df + biggest dirs under ~/srv (or [path]).
+  --ncdu    drop into ncdu for interactive browsing.
+EOF
+		;;
+		*) target="$a" ;;
+	esac
+done
+
+hl_h1 "Filesystem usage"
+df -hT -x tmpfs -x devtmpfs -x squashfs 2>/dev/null \
+	| awk 'NR==1 || $2!~/^(overlay|none)$/' \
+	| sed 's/^/  /'
+
+echo
+hl_h1 "Biggest top-level dirs in $target"
+if [ -d "$target" ]; then
+	du -h --max-depth=1 "$target" 2>/dev/null \
+		| sort -hr \
+		| head -n 12 \
+		| sed 's/^/  /'
+else
+	printf "  %sdirectory does not exist: %s%s\n" "$C_DIM" "$target" "$C_RESET"
+fi
+
+echo
+hl_h1 "Docker disk usage"
+if hl_docker_ready; then
+	docker system df 2>/dev/null | sed 's/^/  /'
+else
+	printf "  %sdocker not available%s\n" "$C_DIM" "$C_RESET"
+fi
+
+if [ "$run_ncdu" -eq 1 ]; then
+	command -v ncdu >/dev/null 2>&1 || hl_die "ncdu not installed -- run scripts/wsl/05-install-tui.sh"
+	exec ncdu "$target"
+fi
+
+echo
+printf "  %sFor interactive browsing: %shl disk --ncdu%s\n" "$C_DIM" "$C_BOLD" "$C_RESET"

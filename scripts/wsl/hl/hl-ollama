@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+# hl ollama [list|pull <model>|run <model>|evict|ps]
+#
+# Wraps the ollama CLI inside the running ollama container.
+
+set -euo pipefail
+HL_BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$HL_BIN_DIR/lib.sh"
+
+usage() {
+	cat <<EOF
+hl ollama [sub]
+  list                  list installed models
+  ps                    list models currently loaded into VRAM
+  pull <model>          pull a model from the ollama registry
+  run  <model>          interactive chat (drops into the container)
+  evict                 evict every loaded model from VRAM (frees GPU)
+  rm   <model>          delete a model
+  pick                  fzf-pick an installed model and run it
+EOF
+}
+
+sub="${1:-}"; shift || true
+
+case "$sub" in
+	-h|--help|help) usage; exit 0 ;;
+esac
+
+hl_docker_ready || hl_die "docker is not available"
+
+if ! docker ps --format '{{.Names}}' 2>/dev/null | grep -q '^ollama$'; then
+	hl_warn "the 'ollama' container is not running"
+	echo "  start it with: hl up ollama"
+	exit 1
+fi
+
+ol() { docker exec -i ollama ollama "$@"; }
+
+case "$sub" in
+	""|list)
+		hl_h1 "Installed models"
+		ol list | sed 's/^/  /'
+		echo
+		hl_h1 "Loaded in VRAM"
+		ol ps   | sed 's/^/  /' || true
+		;;
+	ps)        ol ps ;;
+	pull)
+		[ -n "${1:-}" ] || hl_usage_die "usage: hl ollama pull <model>"
+		ol pull "$1"
+		;;
+	run)
+		[ -n "${1:-}" ] || hl_usage_die "usage: hl ollama run <model>"
+		exec docker exec -it ollama ollama run "$1"
+		;;
+	pick)
+		model=$(ol list 2>/dev/null | tail -n +2 | awk '{print $1}' | hl_pick "model")
+		[ -z "${model:-}" ] && exit 0
+		exec docker exec -it ollama ollama run "$model"
+		;;
+	evict)
+		# Evict by stopping each loaded model. ollama supports stopping a model.
+		mapfile -t loaded < <(ol ps 2>/dev/null | tail -n +2 | awk '{print $1}')
+		if [ "${#loaded[@]}" -eq 0 ]; then
+			hl_ok "no models currently loaded"
+			exit 0
+		fi
+		for m in "${loaded[@]}"; do
+			[ -z "$m" ] && continue
+			hl_info "stopping model: $m"
+			ol stop "$m" 2>/dev/null || true
+		done
+		hl_ok "all loaded models evicted"
+		;;
+	rm)
+		[ -n "${1:-}" ] || hl_usage_die "usage: hl ollama rm <model>"
+		hl_confirm "Delete model '$1'?" || exit 0
+		ol rm "$1"
+		;;
+	*) usage; exit 2 ;;
+esac

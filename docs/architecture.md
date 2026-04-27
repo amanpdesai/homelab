@@ -35,8 +35,9 @@
 3. The utility VM boots the Ubuntu distro under systemd, because
    `/etc/wsl.conf` has `[boot] systemd=true`.
 4. systemd starts enabled units: `ssh`, `docker`, optionally `tailscaled`.
-5. `~/.bashrc.local` auto-attaches incoming SSH sessions to the `main`
-   tmux session.
+5. The custom MOTD runs `hl status --motd` for a compact health snapshot.
+6. The shell stays normal. Run `tm <name>` for a persistent tmux session
+   or `hl dash` for the monitoring dashboard.
 
 After idle, WSL2 will gradually return RAM to Windows because of
 `autoMemoryReclaim=gradual` in `.wslconfig`. Containers stay running
@@ -49,7 +50,7 @@ inside the VM unless explicitly stopped.
 ```
 phone (Termius) --[WireGuard tunnel]--> tailscaled (Windows)
    --[mirrored networking shares :22]--> sshd (WSL Ubuntu)
-   --[bash + tmux]-->  ~/srv shell
+   --[bash + optional tmux]-->  ~/srv shell
 ```
 
 ### Ollama API call from laptop

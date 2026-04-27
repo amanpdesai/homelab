@@ -16,12 +16,15 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$repoRoot = Split-Path -Parent $PSScriptRoot
+$repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 
 function Info($m) { Write-Host "==> $m"  -ForegroundColor Cyan }
 function Ok($m)   { Write-Host "[ok]  $m" -ForegroundColor Green }
 function Warn($m) { Write-Host "[!]   $m" -ForegroundColor Yellow }
 function Die($m)  { Write-Host "[err] $m" -ForegroundColor Red; exit 1 }
+function Assert-LastExit($m) {
+	if ($LASTEXITCODE -ne 0) { Die $m }
+}
 
 # Require admin
 $isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
@@ -48,7 +51,7 @@ if (-not $SkipWslInstall) {
 	if (Get-Command wsl -ErrorAction SilentlyContinue) {
 		try {
 			wsl --status | Out-Null
-			$wslAvailable = $true
+			$wslAvailable = ($LASTEXITCODE -eq 0)
 		} catch {
 			$wslAvailable = $false
 		}
@@ -57,6 +60,7 @@ if (-not $SkipWslInstall) {
 	if (-not $wslAvailable) {
 		Info "Installing WSL (no distro). A reboot will likely be required."
 		wsl --install --no-distribution
+		Assert-LastExit "WSL install failed."
 		Warn "Reboot Windows, then re-run this script with -SkipWslInstall."
 		exit 0
 	}
@@ -64,6 +68,7 @@ if (-not $SkipWslInstall) {
 
 	Info "Updating WSL kernel..."
 	wsl --update | Out-Host
+	Assert-LastExit "WSL kernel update failed."
 	Ok "WSL kernel updated."
 
 	$distros = @()
@@ -77,6 +82,7 @@ if (-not $SkipWslInstall) {
 	if ($distros -notcontains $Distro) {
 		Info "Installing distro: $Distro"
 		wsl --install -d $Distro
+		Assert-LastExit "Distro install failed: $Distro"
 		Warn "Finish the Ubuntu first-run setup (create user plus password) before running 00-bootstrap.sh."
 	} else {
 		Ok "Distro '$Distro' already installed."
@@ -86,6 +92,7 @@ if (-not $SkipWslInstall) {
 # 3. Restart WSL so the new .wslconfig is read on next start
 Info "Shutting down WSL so .wslconfig takes effect..."
 wsl --shutdown
+Assert-LastExit "wsl --shutdown failed."
 Ok "Done."
 
 Write-Host ""

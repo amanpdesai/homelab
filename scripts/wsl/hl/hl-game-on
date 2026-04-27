@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# hl game-on -- stop every GPU-tagged compose stack so the game has VRAM.
+
+set -euo pipefail
+HL_BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$HL_BIN_DIR/lib.sh"
+
+case "${1:-}" in
+	-h|--help)
+		cat <<EOF
+hl game-on
+  Stop every GPU-tagged compose stack before launching a game.
+EOF
+		exit 0
+		;;
+esac
+
+hl_docker_ready || hl_die "docker is not available"
+
+mapfile -t gpu_stacks < <(hl_stacks | while read -r s; do hl_stack_is_gpu "$s" && echo "$s"; done)
+
+if [ "${#gpu_stacks[@]}" -eq 0 ]; then
+	hl_warn "no GPU-tagged stacks found -- nothing to stop"
+	exit 0
+fi
+
+hl_h1 "Gaming mode: stopping GPU stacks"
+for s in "${gpu_stacks[@]}"; do
+	cf=$(hl_stack_path "$s")
+	hl_info "stopping $s"
+	docker compose -f "$cf" down
+done
+
+hl_ok "Gaming mode is ON. VRAM is yours."
+echo
+printf "  %sBring services back with:  hl game-off%s\n" "$C_DIM" "$C_RESET"

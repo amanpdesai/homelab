@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# hl game-off -- bring every GPU-tagged compose stack back up.
+
+set -euo pipefail
+HL_BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$HL_BIN_DIR/lib.sh"
+
+case "${1:-}" in
+	-h|--help)
+		cat <<EOF
+hl game-off
+  Start every GPU-tagged compose stack after gaming.
+EOF
+		exit 0
+		;;
+esac
+
+hl_docker_ready || hl_die "docker is not available"
+
+mapfile -t gpu_stacks < <(hl_stacks | while read -r s; do hl_stack_is_gpu "$s" && echo "$s"; done)
+
+if [ "${#gpu_stacks[@]}" -eq 0 ]; then
+	hl_warn "no GPU-tagged stacks found -- nothing to start"
+	exit 0
+fi
+
+hl_h1 "Gaming mode off: starting GPU stacks"
+for s in "${gpu_stacks[@]}"; do
+	cf=$(hl_stack_path "$s")
+	hl_info "starting $s"
+	docker compose -f "$cf" up -d
+done
+
+hl_ok "GPU stacks are back up."

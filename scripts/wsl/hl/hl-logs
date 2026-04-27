@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+# hl logs [stack|container] [-n N]  -- follow logs.
+# - If the name matches a compose stack, follows compose logs.
+# - Otherwise treats the name as a docker container.
+
+set -euo pipefail
+HL_BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$HL_BIN_DIR/lib.sh"
+
+target=""
+tail_n="200"
+extra=()
+while [ $# -gt 0 ]; do
+	case "$1" in
+		-n|--tail)
+			[ -n "${2:-}" ] || hl_usage_die "usage: hl logs [stack|container] [-n N]"
+			tail_n="$2"
+			shift 2
+			;;
+		-h|--help)
+			cat <<EOF
+hl logs [stack|container] [-n N]
+  Follow logs for a compose stack or container.
+  Without a target, pick from discovered stacks and running containers.
+EOF
+			exit 0
+			;;
+		*)
+			if [ -z "$target" ]; then
+				target="$1"
+			else
+				extra+=("$1")
+			fi
+			shift
+			;;
+	esac
+done
+
+hl_docker_ready || hl_die "docker is not available"
+
+if [ -z "$target" ]; then
+	# offer both stacks and running containers
+	picked=$({
+		hl_stacks | sed 's/^/stack: /'
+		docker ps --format 'container: {{.Names}}' 2>/dev/null
+	} | hl_pick "logs")
+	target="${picked#*: }"
+fi
+[ -z "${target:-}" ] && hl_die "no target selected"
+
+if cf=$(hl_stack_path "$target" 2>/dev/null); then
+	hl_info "following logs for stack '$target' (Ctrl-C to stop)"
+	exec docker compose -f "$cf" logs -f --tail "$tail_n" "${extra[@]}"
+else
+	hl_info "following logs for container '$target' (Ctrl-C to stop)"
+	exec docker logs -f --tail "$tail_n" "$target"
+fi
