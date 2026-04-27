@@ -43,6 +43,7 @@ homelab/
 |   |-- windows/            PowerShell, run on Windows host as admin
 |   +-- wsl/                bash, run inside WSL2 as your user
 |-- docker/                 compose stacks, one directory per service
+|-- docs/                   long-form docs: architecture, decisions, runbook, troubleshooting
 |-- Makefile                entry points for common ops
 |-- .gitignore
 +-- README.md
@@ -139,6 +140,18 @@ processors at 12 to leave headroom for games. Stop GPU-heavy workloads
 (Ollama, training jobs) before launching a game; the RTX 4060 Ti's 8 GB
 VRAM is shared, and Windows plus the game plus a loaded model will OOM
 the GPU. There is no software guard for this; it is a manual rule.
+
+## Further reading
+
+Long-form context lives in [`docs/`](docs/README.md):
+
+- [`docs/architecture.md`](docs/architecture.md) -- layers and traffic flow
+- [`docs/decisions.md`](docs/decisions.md) -- ADRs explaining the choices
+- [`docs/networking.md`](docs/networking.md) -- mirrored networking and Tailscale wiring
+- [`docs/gpu-and-llm.md`](docs/gpu-and-llm.md) -- VRAM budget and Ollama notes
+- [`docs/operations.md`](docs/operations.md) -- runbook for common ops
+- [`docs/troubleshooting.md`](docs/troubleshooting.md) -- symptom -> fix
+- [`docs/inventory.md`](docs/inventory.md) -- living state snapshot
 
 ## License
 
