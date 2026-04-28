@@ -1,0 +1,147 @@
+#!/usr/bin/env bash
+# hl doctor -- readiness checks for the WSL homelab instance.
+
+set -euo pipefail
+HL_BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$HL_BIN_DIR/lib.sh"
+
+errors=0
+warnings=0
+
+usage() {
+	cat <<EOF
+hl doctor
+  Run readiness checks for WSL, systemd, sshd, Docker, GPU, Tailscale,
+  compose stacks, disk space, repo paths, and SSH key permissions.
+EOF
+}
+
+case "${1:-}" in
+	-h|--help) usage; exit 0 ;;
+esac
+
+pass() { printf "  %s  %s\n" "$(hl_tag ok)" "$*"; }
+warn() { warnings=$((warnings+1)); printf "  %s  %s\n" "$(hl_tag warn)" "$*"; }
+fail() { errors=$((errors+1)); printf "  %s  %s\n" "$(hl_tag err)" "$*"; }
+
+check_cmd() {
+	local cmd="$1" label="${2:-$1}"
+	if command -v "$cmd" >/dev/null 2>&1; then pass "$label installed"; else fail "$label missing"; fi
+}
+
+check_path_or_cmd() {
+	local cmd="$1" path="$2" label="${3:-$1}"
+	if command -v "$cmd" >/dev/null 2>&1 || [ -x "$path" ]; then pass "$label installed"; else fail "$label missing"; fi
+}
+
+check_unit() {
+	local unit="$1" label="${2:-$1}"
+	if ! command -v systemctl >/dev/null 2>&1 || ! pidof systemd >/dev/null 2>&1; then
+		warn "cannot check $label; systemd is not running"
+		return
+	fi
+	if systemctl is-active --quiet "$unit"; then
+		pass "$label active"
+	elif systemctl is-enabled --quiet "$unit" 2>/dev/null; then
+		warn "$label enabled but not active"
+	else
+		fail "$label not active"
+	fi
+}
+
+hl_h1 "Host"
+if grep -qi microsoft /proc/version 2>/dev/null; then pass "running inside WSL"; else warn "not running inside WSL"; fi
+if pidof systemd >/dev/null 2>&1; then pass "systemd running"; else fail "systemd not running; run wsl --shutdown from Windows after make bootstrap"; fi
+[ -d "$HOME/srv" ] && pass "~/srv exists" || warn "~/srv missing"
+[ "$HL_REPO" = "$HOME/srv/homelab" ] && pass "repo path is ~/srv/homelab" || warn "repo path is $HL_REPO, expected $HOME/srv/homelab"
+
+hl_h1 "Core commands"
+for c in git make tmux ssh docker; do check_cmd "$c"; done
+check_path_or_cmd sshd /usr/sbin/sshd sshd
+check_cmd fzf
+check_cmd ncdu
+check_cmd jq
+
+hl_h1 "Services"
+check_unit ssh sshd
+check_unit docker docker
+if command -v tailscale >/dev/null 2>&1; then
+	if tailscale status >/dev/null 2>&1; then pass "Tailscale connected inside WSL"; else warn "Tailscale installed in WSL but not connected"; fi
+else
+	warn "Tailscale not installed in WSL; okay if Windows host Tailscale is the primary path"
+fi
+
+hl_h1 "SSH keys"
+if [ -d "$HOME/.ssh" ]; then
+	mode=$(stat -c '%a' "$HOME/.ssh" 2>/dev/null || echo "?")
+	[ "$mode" = "700" ] && pass "~/.ssh mode 700" || warn "~/.ssh mode is $mode, expected 700"
+else
+	fail "~/.ssh missing"
+fi
+ak="$HOME/.ssh/authorized_keys"
+if [ -f "$ak" ]; then
+	mode=$(stat -c '%a' "$ak" 2>/dev/null || echo "?")
+	[ "$mode" = "600" ] && pass "authorized_keys mode 600" || warn "authorized_keys mode is $mode, expected 600"
+	key_count=$(grep -cE '^(ssh-ed25519|ssh-rsa|ecdsa-sha2-)' "$ak" 2>/dev/null || true)
+	key_count="${key_count:-0}"
+	[ "$key_count" -gt 0 ] && pass "$key_count authorized SSH key(s)" || warn "authorized_keys has no public keys"
+else
+	fail "authorized_keys missing"
+fi
+
+hl_h1 "Docker"
+if hl_docker_ready; then
+	pass "docker daemon reachable"
+	if docker compose version >/dev/null 2>&1; then pass "docker compose available"; else fail "docker compose plugin missing"; fi
+else
+	warn "docker daemon not reachable"
+fi
+
+hl_h1 "GPU"
+if hl_have_gpu; then
+	pass "nvidia-smi available"
+	nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv,noheader 2>/dev/null | sed 's/^/  info  /' || true
+else
+	warn "nvidia-smi not found; GPU workloads will not work yet"
+fi
+
+hl_h1 "Compose stacks"
+stack_count=0
+while read -r stack; do
+	[ -n "$stack" ] || continue
+	stack_count=$((stack_count+1))
+	cf=$(hl_stack_path "$stack") || continue
+	if ! hl_docker_ready; then
+		warn "$stack: docker unavailable"
+		continue
+	fi
+	total=$(( $(docker compose -f "$cf" ps -aq 2>/dev/null | wc -l) + 0 ))
+	running=$(( $(docker compose -f "$cf" ps --status running -q 2>/dev/null | wc -l) + 0 ))
+	if [ "$total" -eq 0 ]; then
+		pass "$stack defined, not created"
+	elif [ "$running" -eq "$total" ]; then
+		pass "$stack $running/$total running"
+	else
+		warn "$stack $running/$total running"
+	fi
+done < <(hl_stacks)
+[ "$stack_count" -gt 0 ] && pass "$stack_count compose stack(s) discovered" || warn "no compose stacks discovered"
+
+hl_h1 "Disk"
+root_pct=$(df -P / 2>/dev/null | awk 'NR==2{gsub("%","",$5); print $5}')
+if [ -n "${root_pct:-}" ]; then
+	if [ "$root_pct" -ge 90 ]; then fail "root filesystem ${root_pct}% full"
+	elif [ "$root_pct" -ge 80 ]; then warn "root filesystem ${root_pct}% full"
+	else pass "root filesystem ${root_pct}% full"; fi
+fi
+
+echo
+if [ "$errors" -gt 0 ]; then
+	fail "$errors error(s), $warnings warning(s)"
+	exit 1
+elif [ "$warnings" -gt 0 ]; then
+	warn "0 errors, $warnings warning(s)"
+	exit 0
+else
+	pass "all checks passed"
+fi

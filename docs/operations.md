@@ -14,6 +14,14 @@
 5. The login banner prints a compact `hl status --motd` snapshot. Run
    `tm main` if you want a persistent tmux session.
 
+Inside WSL, use `hl keys` for future key changes:
+
+```bash
+hl keys list
+hl keys add macbook "ssh-ed25519 AAAA... user@example.com"
+hl keys remove macbook
+```
+
 ## Tmux quick reference
 
 Prefix is `Ctrl-a`. The bashrc helper `tm <name>` attaches or creates a
@@ -40,6 +48,9 @@ Convention: one tmux session per intent (`main`, `infra`,
 
 # Ubuntu packages plus Docker compose images (inside WSL)
 hl update
+
+# Health/readiness checks after updates
+hl doctor
 
 # Tailscale (inside WSL only if installed there)
 sudo tailscale update    # newer versions handle this automatically

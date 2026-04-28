@@ -1,0 +1,114 @@
+#!/usr/bin/env bash
+# hl keys -- manage inbound SSH public keys for this WSL user.
+
+set -euo pipefail
+HL_BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$HL_BIN_DIR/lib.sh"
+
+AUTH_KEYS="$HOME/.ssh/authorized_keys"
+
+usage() {
+	cat <<EOF
+hl keys <command>
+  list                         list authorized public keys
+  add <name> <public-key>      add a public key with a stable label
+  remove <name|fingerprint>    remove keys matching a label or fingerprint
+  fix-perms                    fix ~/.ssh and authorized_keys permissions
+EOF
+}
+
+ensure_files() {
+	mkdir -p "$HOME/.ssh"
+	touch "$AUTH_KEYS"
+	chmod 700 "$HOME/.ssh"
+	chmod 600 "$AUTH_KEYS"
+}
+
+fingerprint_key() {
+	printf '%s\n' "$1" | ssh-keygen -lf - 2>/dev/null | awk '{print $2}'
+}
+
+normalize_key() {
+	local input="$*"
+	local type blob comment
+	type=$(printf '%s\n' "$input" | awk '{print $1}')
+	blob=$(printf '%s\n' "$input" | awk '{print $2}')
+	comment=$(printf '%s\n' "$input" | cut -d' ' -f3-)
+	case "$type" in
+		ssh-ed25519|ssh-rsa|ecdsa-sha2-*) ;;
+		*) hl_usage_die "unsupported or invalid SSH public key type: $type" ;;
+	esac
+	[ -n "$blob" ] || hl_usage_die "invalid SSH public key"
+	if [ -n "$comment" ] && [ "$comment" != "$input" ]; then
+		printf '%s %s %s\n' "$type" "$blob" "$comment"
+	else
+		printf '%s %s\n' "$type" "$blob"
+	fi
+}
+
+cmd="${1:-}"; shift || true
+case "$cmd" in
+	-h|--help|"") usage; exit 0 ;;
+	list)
+		ensure_files
+		if ! grep -qE '^(ssh-ed25519|ssh-rsa|ecdsa-sha2-)' "$AUTH_KEYS"; then
+			printf "  %sno authorized keys%s\n" "$C_DIM" "$C_RESET"
+			exit 0
+		fi
+		while IFS= read -r line; do
+			case "$line" in ''|\#*) continue ;; esac
+			fp=$(fingerprint_key "$line" || true)
+			label=$(printf '%s\n' "$line" | sed -n 's/.* homelab:\([^ ]*\).*/\1/p')
+			comment=$(printf '%s\n' "$line" | cut -d' ' -f3-)
+			[ -n "$label" ] || label="-"
+			printf "  %-18s %-48s %s\n" "$label" "${fp:-unknown}" "$comment"
+		done < "$AUTH_KEYS"
+		;;
+	add)
+		name="${1:-}"; shift || true
+		[ -n "$name" ] || hl_usage_die "usage: hl keys add <name> <public-key>"
+		[ "$#" -gt 0 ] || hl_usage_die "usage: hl keys add <name> <public-key>"
+		key=$(normalize_key "$@")
+		fp=$(fingerprint_key "$key")
+		ensure_files
+		found=0
+		while IFS= read -r line; do
+			[ "$(fingerprint_key "$line" || true)" = "$fp" ] && found=1 && break
+		done < "$AUTH_KEYS"
+		if [ "$found" -eq 1 ]; then
+			hl_warn "key already present: $fp"
+			exit 0
+		fi
+		clean_name=$(printf '%s' "$name" | tr -cs 'A-Za-z0-9_.@+-' '-')
+		key_body=$(printf '%s\n' "$key" | awk '{print $1" "$2}')
+		orig_comment=$(printf '%s\n' "$key" | cut -d' ' -f3-)
+		printf '%s homelab:%s %s\n' "$key_body" "$clean_name" "$orig_comment" >> "$AUTH_KEYS"
+		chmod 600 "$AUTH_KEYS"
+		hl_ok "added key '$clean_name' ($fp)"
+		;;
+	remove|rm)
+		target="${1:-}"
+		[ -n "$target" ] || hl_usage_die "usage: hl keys remove <name|fingerprint>"
+		ensure_files
+		tmp=$(mktemp)
+		removed=0
+		while IFS= read -r line; do
+			fp=$(fingerprint_key "$line" || true)
+			label=$(printf '%s\n' "$line" | sed -n 's/.* homelab:\([^ ]*\).*/\1/p')
+			if [ "$target" = "$label" ] || [ "$target" = "$fp" ]; then
+				removed=$((removed+1))
+				continue
+			fi
+			printf '%s\n' "$line" >> "$tmp"
+		done < "$AUTH_KEYS"
+		cat "$tmp" > "$AUTH_KEYS"
+		rm -f "$tmp"
+		chmod 600 "$AUTH_KEYS"
+		[ "$removed" -gt 0 ] && hl_ok "removed $removed key(s)" || hl_warn "no matching key: $target"
+		;;
+	fix-perms)
+		ensure_files
+		hl_ok "fixed ~/.ssh permissions"
+		;;
+	*) usage; exit 2 ;;
+esac

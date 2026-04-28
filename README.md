@@ -101,6 +101,7 @@ make bootstrap       # base packages, sshd, ~/srv layout
 make dotfiles        # symlink tmux, bash, git, inputrc, ssh config
 make docker          # docker engine plus NVIDIA container toolkit
 make tui             # install hl terminal manager and compact login MOTD
+hl doctor            # verify readiness
 # Optional, only if mirrored networking cannot reach WSL services:
 # make tailscale-wsl
 ```

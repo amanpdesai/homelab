@@ -35,6 +35,8 @@ ${C_BOLD}hl${C_RESET} -- homelab terminal manager
     ${C_BOLD}net${C_RESET}                   tailnet, listening ports, connectivity
     ${C_BOLD}disk${C_RESET}                   disk usage, ncdu launcher
     ${C_BOLD}dash${C_RESET}                   tmux monitoring dashboard
+    ${C_BOLD}doctor${C_RESET}                 readiness and health checks
+    ${C_BOLD}keys${C_RESET}                   manage inbound SSH public keys
     ${C_BOLD}update${C_RESET}                 apt upgrade + compose image refresh
     ${C_BOLD}help${C_RESET} [topic]           cheatsheet
     ${C_BOLD}version${C_RESET}                git rev of this hl
@@ -57,6 +59,8 @@ __hl_menu_items=(
 	"net           tailnet, listening ports, connectivity"
 	"disk          disk usage, ncdu launcher"
 	"dash          tmux monitoring dashboard"
+	"doctor        readiness and health checks"
+	"keys          manage inbound SSH public keys"
 	"update        apt upgrade + compose image refresh"
 	"help          cheatsheet"
 	"version       git rev"

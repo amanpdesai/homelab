@@ -105,6 +105,10 @@ Add either to mark a stack so `hl game-on` knows to stop it.
 | `hl net` | Tailnet status, listening ports, and connectivity checks (1.1.1.1, github.com, derp). |
 | `hl disk` | `df`, biggest top-level dirs in `~/srv`, `docker system df`. `--ncdu` opens ncdu in `~/srv` for interactive browsing. |
 | `hl dash` | Build (or attach to) the `home` tmux session: a four-pane monitor (btop, GPU watch, docker watch, tailnet watch), plus a free shell window and a lazydocker window. |
+| `hl doctor` | Readiness checks for WSL, systemd, sshd, Docker, GPU, Tailscale, compose stacks, disk, repo path, and SSH key permissions. |
+| `hl keys list` | List inbound WSL SSH public keys with labels and fingerprints. |
+| `hl keys add <name> <public-key>` | Add a public key to `~/.ssh/authorized_keys` with a stable `homelab:<name>` label. |
+| `hl keys remove <name\|fingerprint>` | Remove authorized keys by label or fingerprint. |
 | `hl update [--prune]` | Update Ubuntu packages, pull compose images, recreate stacks, and optionally prune unused Docker data. |
 
 ## The `hl dash` dashboard
@@ -173,10 +177,7 @@ SSH login itself never auto-attaches tmux; `hl dash` is an explicit command.
 
 ## Future subcommands (planned)
 
-- `hl projects` and `hl open <name>` -- list `~/srv/projects/*`, attach
-  a tmux session named for the project, cd into it.
 - `hl sys` -- systemctl unit list; restart sshd / docker / tailscaled.
-- `hl update` -- apt update + upgrade + docker pull all + prune.
 - `hl backup` -- run / list / restore via restic (or borg).
 - `hl tree [path]` -- pretty `tree` of `~/srv`.
 - `hl info` -- inventory snapshot mirroring docs/inventory.md.

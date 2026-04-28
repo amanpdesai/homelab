@@ -32,6 +32,8 @@ ${C_BOLD}Operations${C_RESET}
   hl net                        tailnet, listening ports, connectivity check
   hl disk                       df + biggest dirs under ~/srv (then ncdu)
   hl dash                       open the tmux monitoring dashboard
+  hl doctor                     readiness and health checks
+  hl keys [list|add|remove]     manage inbound SSH public keys
   hl update [--prune]           apt upgrade + compose image refresh
 
 ${C_BOLD}Tips${C_RESET}
