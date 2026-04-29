@@ -65,6 +65,42 @@ function Test-KeepAlive {
 	return ($LASTEXITCODE -eq 0)
 }
 
+function Test-WindowsKeepAlive {
+	$needle = "-d $Distro --exec sleep infinity"
+	$proc = Get-CimInstance Win32_Process -Filter "name='wsl.exe'" -ErrorAction SilentlyContinue |
+		Where-Object { $_.CommandLine -like "*$needle*" } |
+		Select-Object -First 1
+	return [bool]$proc
+}
+
+function Start-WindowsKeepAlive {
+	if (Test-WindowsKeepAlive) {
+		Ok "Windows keepalive process is running"
+		return
+	}
+
+	$wslPath = Join-Path $env:WINDIR "System32\wsl.exe"
+	$command = "$wslPath -d $Distro --exec sleep infinity"
+	$result = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{ CommandLine = $command }
+	if ($result.ReturnValue -ne 0) {
+		Warn "Could not start Windows keepalive process via WMI (code $($result.ReturnValue))."
+		return
+	}
+	Start-Sleep -Milliseconds 500
+	if (Test-WindowsKeepAlive) {
+		Ok "Windows keepalive process is running"
+	} else {
+		Warn "Windows keepalive process started but was not found."
+	}
+}
+
+function Stop-WindowsKeepAlive {
+	$needle = "-d $Distro --exec sleep infinity"
+	Get-CimInstance Win32_Process -Filter "name='wsl.exe'" -ErrorAction SilentlyContinue |
+		Where-Object { $_.CommandLine -like "*$needle*" } |
+		ForEach-Object { Invoke-CimMethod -InputObject $_ -MethodName Terminate -ErrorAction SilentlyContinue | Out-Null }
+}
+
 function Remove-StaleKeepAliveTask {
 	$taskName = "Homelab-KeepAlive-$Distro"
 	$task = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
@@ -98,6 +134,7 @@ systemctl enable --now homelab-keepalive.service
 }
 
 function Ensure-KeepAlive {
+	Start-WindowsKeepAlive
 	if (Test-KeepAlive) {
 		Ok "keepalive process is running"
 		return
@@ -117,6 +154,7 @@ function Ensure-KeepAlive {
 }
 
 function Stop-KeepAlive {
+	Stop-WindowsKeepAlive
 	wsl.exe -d $Distro -u root --exec systemctl stop $KeepAliveUnit 2>$null
 }
 
