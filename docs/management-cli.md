@@ -38,7 +38,7 @@ instance-style banner before the prompt:
   Load:        0.42, 0.51, 0.39
   Memory:      6.1 / 16.0 GB (38%)
   Disk /:      124 / 930 GB (13%)
-  Disk ~/srv:  41 GB
+  Disk /srv:   41 GB
   GPU:         NVIDIA GeForce RTX 4060 Ti, 5.8 / 8.0 GB VRAM (12%), 73 C
   Tailscale:   100.x.x.x  (homelab.tailxxxx.ts.net)
 ================================================================================
@@ -103,7 +103,7 @@ Add either to mark a stack so `hl game-on` knows to stop it.
 | Command | What it does |
 | --- | --- |
 | `hl net` | Tailnet status, listening ports, and connectivity checks (1.1.1.1, github.com, derp). |
-| `hl disk` | `df`, biggest top-level dirs in `~/srv`, `docker system df`. `--ncdu` opens ncdu in `~/srv` for interactive browsing. |
+| `hl disk` | `df`, biggest top-level dirs in `/srv/homelab`, `docker system df`. `--ncdu` opens ncdu in `/srv/homelab` for interactive browsing. |
 | `hl dash` | Build (or attach to) the `home` tmux session: a four-pane monitor (btop, GPU watch, docker watch, tailnet watch), plus a free shell window and a lazydocker window. |
 | `hl doctor` | Readiness checks for WSL, systemd, sshd, Docker, GPU, Tailscale, compose stacks, disk, repo path, and SSH key permissions. |
 | `hl keys list` | List inbound WSL SSH public keys with labels and fingerprints. |
@@ -179,7 +179,7 @@ SSH login itself never auto-attaches tmux; `hl dash` is an explicit command.
 
 - `hl sys` -- systemctl unit list; restart sshd / docker / tailscaled.
 - `hl backup` -- run / list / restore via restic (or borg).
-- `hl tree [path]` -- pretty `tree` of `~/srv`.
+- `hl tree [path]` -- pretty `tree` of `/srv/homelab` or another path.
 - `hl info` -- inventory snapshot mirroring docs/inventory.md.
 - bash completion for `hl <tab>` and `hl up <tab>`.
 

@@ -7,7 +7,7 @@
 help:  ## Show this help
 	@awk 'BEGIN {FS = ":.*##"} /^[a-zA-Z_-]+:.*?##/ { printf "  %-16s %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 
-bootstrap:  ## Base packages, sshd, ~/srv layout (run inside WSL)
+bootstrap:  ## Base packages, sshd, /srv/homelab layout (run inside WSL)
 	bash scripts/wsl/00-bootstrap.sh
 
 dotfiles:  ## Symlink dotfiles into $$HOME (run inside WSL)

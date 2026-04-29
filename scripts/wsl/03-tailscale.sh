@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # 03-tailscale.sh -- install Tailscale inside WSL.
 #
-# Only needed if mirrored networking on the Windows host cannot expose
-# WSL2 services on the tailnet. With mirrored networking plus Tailscale
-# on Windows, you can usually skip this entirely.
+# Optional. The default path is Tailscale on Windows plus explicit
+# Windows portproxy rules into WSL. Install Tailscale inside WSL only
+# when you want the distro to appear as its own tailnet node.
 
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

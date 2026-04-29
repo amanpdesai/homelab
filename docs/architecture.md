@@ -12,7 +12,7 @@
 |   +------------------------------------------------------+   |
 |   | WSL2 lightweight VM (utility VM)                     |   |
 |   |   - shared kernel image, managed by Windows          |   |
-|   |   - mirrored network stack with Windows host         |   |
+|   |   - default NAT networking, reached through portproxy |   |
 |   |                                                      |   |
 |   |   +------------------------------------------+       |   |
 |   |   | Ubuntu distro                            |       |   |
@@ -20,7 +20,8 @@
 |   |   |   - sshd (port 2222, key auth only)      |       |   |
 |   |   |   - dockerd (Engine, native install)     |       |   |
 |   |   |   - optional tailscaled (fallback path)  |       |   |
-|   |   |   - user workspace under ~/srv/          |       |   |
+|   |   |   - VM config in /opt/homelab           |       |   |
+|   |   |   - VM state in /srv/homelab            |       |   |
 |   |   +------------------------------------------+       |   |
 |   +------------------------------------------------------+   |
 +--------------------------------------------------------------+
@@ -29,8 +30,8 @@
 ## Boot flow
 
 1. Windows boots; nothing WSL-related runs yet.
-2. First command that touches WSL (`wsl`, opening Ubuntu, or SSH to the
-   WSL homelab port through mirrored networking) starts the utility VM.
+2. `.\homelab.ps1 start` starts the utility VM, launches a hidden
+   `homelab-keepalive` process, and refreshes Windows portproxy for SSH.
 3. The utility VM boots the Ubuntu distro under systemd, because
    `/etc/wsl.conf` has `[boot] systemd=true`.
 4. systemd starts enabled units: `ssh`, `docker`, optionally `tailscaled`.
@@ -48,28 +49,27 @@ inside the VM unless explicitly stopped.
 
 ```
 phone (Termius) --[WireGuard tunnel]--> tailscaled (Windows)
-   --[mirrored networking shares :2222]--> sshd (WSL Ubuntu)
-   --[bash + optional tmux]-->  ~/srv shell
+   --[Windows :2222 portproxy]--> sshd (WSL Ubuntu)
+   --[bash + optional tmux]-->  normal user shell
 ```
 
 ### Ollama API call from laptop
 
 ```
 laptop (curl) --[WireGuard]--> tailscaled (Windows)
-   --[mirrored, 127.0.0.1:11434]--> docker port-forward
+   --[explicit Windows/WSL forwarding]--> docker port-forward
    --[container :11434]--> ollama --[NVIDIA toolkit]--> RTX 4060 Ti
 ```
 
-The Ollama port is bound to `127.0.0.1:11434` on the WSL side. With
-mirrored networking the Windows host shares that loopback, and the
-tailnet uses Tailscale Serve / Funnel rules (or simply forwards to the
-Windows loopback) to reach it. By default it is not exposed to the
-public internet.
+The Ollama port is bound to `127.0.0.1:11434` on the WSL side by
+default. Expose services deliberately, either with a Windows portproxy,
+Tailscale Serve, or by installing Tailscale inside WSL for that service.
+By default nothing is exposed to the public internet.
 
 ### Docker host -> container -> GPU
 
 ```
-shell (~/srv/homelab) -> docker compose up -d
+shell (/opt/homelab) -> docker compose up -d
 dockerd --[unix socket]--> containerd --[runc]--> ollama container
    --[NVIDIA Container Toolkit]--> /dev/nvidia* --[CUDA-on-WSL]--> GPU
 ```
@@ -85,10 +85,10 @@ separate Linux NVIDIA driver to install inside WSL.
 | --- | --- | --- |
 | `.wslconfig` | `%UserProfile%\.wslconfig` (Windows) | yes (`wsl/wslconfig.example`) |
 | `/etc/wsl.conf` | inside Ubuntu | yes (`wsl/wsl.conf`) |
-| dotfiles | `~/.tmux.conf` etc | yes (`dotfiles/`) |
+| dotfiles | `~/.tmux.conf` etc | yes (`dotfiles/`, optional per user) |
 | sshd config | `/etc/ssh/sshd_config` | edited in place by `00-bootstrap.sh` |
 | user authorized keys | `~/.ssh/authorized_keys` | no (manual paste) |
-| project repos | `~/srv/projects/<name>` | no (each is its own git repo) |
-| service data | `~/srv/data/<name>` and named docker volumes | no (gitignored) |
-| model weights | docker volume `ollama-data` (or `~/srv/models/`) | no (gitignored) |
-| backups | `~/srv/backups/` | no (gitignored) |
+| project repos | user-chosen locations under `/home/<user>` | no |
+| service data | `/srv/homelab/data/<name>` and named docker volumes | no |
+| model weights | docker volume `ollama-data` (or `/srv/homelab/models/`) | no |
+| backups | `/srv/homelab/backups/` | no |

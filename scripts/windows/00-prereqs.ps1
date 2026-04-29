@@ -98,5 +98,5 @@ Ok "Done."
 Write-Host ""
 Write-Host "Next steps:" -ForegroundColor Cyan
 Write-Host "  1. Open Ubuntu from the Start menu and finish first-run setup if needed."
-Write-Host "  2. Inside WSL: clone this repo to ~/srv/homelab and run 'make bootstrap'."
+Write-Host "  2. Inside WSL: clone this repo to /opt/homelab and run 'make bootstrap'."
 Write-Host ""

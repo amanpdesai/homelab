@@ -19,8 +19,8 @@ boot partition.
 **Tradeoff accepted:**
 - `+` One boot. Single GPU driver chain. Shared filesystem access from
    both sides. No GRUB/EFI churn.
-- `+` Mirrored networking lets Tailscale on Windows reach Linux services
-   without per-port forwarding rules.
+- `+` Windows Tailscale plus explicit forwarding keeps Linux services
+   private while still reachable from trusted tailnet devices.
 - `+` Lower RAM and CPU floor than a fully partitioned VM.
 - `-` Hyper-V flips an anti-cheat compatibility risk on for some games
    (Vanguard family). Acceptable for our game library.
@@ -73,25 +73,25 @@ the public internet.
 
 ---
 
-## ADR-004: Mirrored networking over default NAT
+## ADR-004: Default NAT plus portproxy over mirrored networking
 
-**Choice:** `networkingMode=mirrored` in `.wslconfig`.
+**Choice:** Use WSL2 default NAT networking and refresh a Windows
+`netsh interface portproxy` rule for WSL SSH from `homelab.ps1 start`.
 
 **Alternatives:**
-- Default NAT plus per-port `netsh interface portproxy` rules.
+- `networkingMode=mirrored` in `.wslconfig`.
 - Run Tailscale inside WSL too (still possible as a fallback).
 
 **Tradeoff accepted:**
-- `+` Windows host and WSL guest share IPs. A service bound to
-   `127.0.0.1:11434` inside WSL is reachable on the Windows host's
-   `127.0.0.1:11434` directly.
-- `+` Tailscale on Windows can reach WSL services without portproxy.
-- `+` Localhost-bound services stay isolated; only the tailnet sees
-   them via the Windows tailscaled.
-- `-` Requires Win11 22H2+. Some corporate networks have been reported
-   to misbehave with mirrored mode.
-- `-` If mirrored breaks, the fallback is `make tailscale-wsl` so the
-   WSL distro joins the tailnet directly.
+- `+` Works on the current host without depending on mirrored networking
+   behavior.
+- `+` Windows SSH stays on port 22 for admin/reboot; WSL SSH is cleanly
+   separated on port 2222.
+- `+` The helper script owns the moving WSL IP problem.
+- `-` Portproxy must be refreshed after WSL gets a new IP. `start` and
+   `restart` handle this when run as Administrator.
+- `-` Each additional externally reachable WSL service needs its own
+   deliberate forwarding rule.
 
 ---
 
@@ -144,5 +144,5 @@ data, and project source code stay outside.
 - `+` `git clone` is fast and small. Reset to a known good config is
    one `git reset --hard origin/main` away.
 - `+` No accidental commit of large weights or secrets.
-- `-` Backup of `~/srv/data` and `~/srv/models` must be solved
+- `-` Backup of `/srv/homelab/data` and `/srv/homelab/models` must be solved
    separately (see operations.md).

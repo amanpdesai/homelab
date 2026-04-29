@@ -18,8 +18,8 @@ export LESS='-R -i -M -W -z-4'
 export PATH="$HOME/.local/bin:$HOME/bin:$PATH"
 
 # Homelab paths
-export SRV="$HOME/srv"
-export HOMELAB="$SRV/homelab"
+export HOMELAB="/opt/homelab"
+export HOMELAB_STATE="/srv/homelab"
 
 # Aliases
 alias ll='ls -alFh --color=auto'

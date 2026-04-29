@@ -30,7 +30,7 @@ ${C_BOLD}GPU and Ollama${C_RESET}
 
 ${C_BOLD}Operations${C_RESET}
   hl net                        tailnet, listening ports, connectivity check
-  hl disk                       df + biggest dirs under ~/srv (then ncdu)
+  hl disk                       df + biggest dirs under /srv/homelab
   hl dash                       open the tmux monitoring dashboard
   hl doctor                     readiness and health checks
   hl keys [list|add|remove]     manage inbound SSH public keys
@@ -38,6 +38,7 @@ ${C_BOLD}Operations${C_RESET}
 
 ${C_BOLD}Tips${C_RESET}
   - Repo:       $HL_REPO
+  - VM state:   /srv/homelab
   - Stacks live in \$HL_REPO/docker/<name>/compose.yaml
   - A stack is "GPU" if its compose has driver: nvidia or x-homelab-gpu: true
   - All output is plain ANSI; ${C_DIM}--plain${C_RESET} disables colors.

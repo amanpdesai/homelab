@@ -10,8 +10,8 @@ Usage:
   .\scripts\windows\instance.ps1 ssh
   .\scripts\windows\instance.ps1 update
 
-This script does not require Administrator PowerShell. It controls the WSL
-distro from the Windows host and keeps normal SSH/tmux behavior unchanged.
+Start/restart can refresh the Windows portproxy for WSL SSH when run from an
+Administrator PowerShell. Other commands work without elevation.
 #>
 
 [CmdletBinding()]
@@ -20,7 +20,7 @@ param(
 	[string]$Command = "status",
 	[string]$Distro = "",
 	[string]$User = "",
-	[int]$SshPort = 22
+	[int]$SshPort = 2222
 )
 
 $ErrorActionPreference = "Stop"
@@ -29,6 +29,15 @@ function Info($m) { Write-Host "==> $m"  -ForegroundColor Cyan }
 function Ok($m)   { Write-Host "[ok]  $m" -ForegroundColor Green }
 function Warn($m) { Write-Host "[!]   $m" -ForegroundColor Yellow }
 function Die($m)  { Write-Host "[err] $m" -ForegroundColor Red; exit 1 }
+
+$PortProxyRuleName = "Homelab-WSL-SSH-$SshPort"
+$KeepAliveName = "homelab-keepalive"
+
+function Test-IsAdmin {
+	$identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+	$principal = [Security.Principal.WindowsPrincipal]::new($identity)
+	return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+}
 
 function Get-DistroNames {
 	$raw = (wsl.exe -l -q) 2>$null
@@ -48,6 +57,82 @@ function Invoke-WslChecked {
 	)
 	wsl.exe @WslArgs
 	if ($LASTEXITCODE -ne 0) { Die $FailureMessage }
+}
+
+function Start-WindowsProcessHidden {
+	param(
+		[string]$FilePath,
+		[string[]]$ArgumentList
+	)
+	$quotedArgs = $ArgumentList | ForEach-Object {
+		if ($_ -match '[\s"]') {
+			'"' + ($_ -replace '"', '\"') + '"'
+		} else {
+			$_
+		}
+	}
+	Start-Process -FilePath $FilePath -ArgumentList ($quotedArgs -join " ") -WindowStyle Hidden
+}
+
+function Test-KeepAlive {
+	$null = (wsl.exe -d $Distro --exec sh -lc "pgrep -f '^$KeepAliveName ' >/dev/null") 2>$null
+	return ($LASTEXITCODE -eq 0)
+}
+
+function Ensure-KeepAlive {
+	if (Test-KeepAlive) {
+		Ok "keepalive process is running"
+		return
+	}
+
+	Info "Starting hidden WSL keepalive process"
+	Start-WindowsProcessHidden -FilePath "wsl.exe" -ArgumentList @(
+		"-d", $Distro,
+		"--exec", "bash", "-lc",
+		"exec -a $KeepAliveName sleep infinity"
+	)
+	Start-Sleep -Milliseconds 500
+	if (-not (Test-KeepAlive)) {
+		Warn "Could not confirm keepalive process. WSL may stop when idle."
+		return
+	}
+	Ok "keepalive process is running"
+}
+
+function Get-WslIpv4 {
+	$raw = (wsl.exe -d $Distro --exec hostname -I) 2>$null
+	if ($LASTEXITCODE -ne 0) { return "" }
+	$ips = ($raw -replace "`0", " ") -split "\s+" |
+		ForEach-Object { $_.Trim() } |
+		Where-Object { $_ -match '^\d+\.\d+\.\d+\.\d+$' -and $_ -ne "127.0.0.1" -and $_ -notlike "172.17.*" }
+	return ($ips | Select-Object -First 1)
+}
+
+function Ensure-WslSshPortProxy {
+	$wslIp = Get-WslIpv4
+	if (-not $wslIp) {
+		Warn "Could not determine the WSL IPv4 address; portproxy was not updated."
+		return
+	}
+
+	if (-not (Test-IsAdmin)) {
+		Warn "Run start/restart from Administrator PowerShell to refresh Windows portproxy for WSL SSH."
+		Write-Host "      Needed rule: 0.0.0.0:$SshPort -> ${wslIp}:$SshPort"
+		return
+	}
+
+	Info "Refreshing Windows portproxy for WSL SSH"
+	& netsh.exe interface portproxy delete v4tov4 listenaddress=0.0.0.0 listenport=$SshPort *> $null
+	& netsh.exe interface portproxy add v4tov4 listenaddress=0.0.0.0 listenport=$SshPort connectaddress=$wslIp connectport=$SshPort *> $null
+	if ($LASTEXITCODE -ne 0) { Die "Failed to add portproxy rule for WSL SSH." }
+
+	$existingRule = Get-NetFirewallRule -DisplayName $PortProxyRuleName -ErrorAction SilentlyContinue
+	if (-not $existingRule) {
+		New-NetFirewallRule -DisplayName $PortProxyRuleName -Direction Inbound -Action Allow -Protocol TCP -LocalPort $SshPort -Profile Any | Out-Null
+	} else {
+		Set-NetFirewallRule -DisplayName $PortProxyRuleName -Enabled True -Profile Any | Out-Null
+	}
+	Ok "WSL SSH forwarded on Windows port $SshPort -> ${wslIp}:$SshPort"
 }
 
 function Resolve-Distro {
@@ -93,6 +178,8 @@ function Start-Instance {
 	Info "Starting WSL distro '$Distro'"
 	Invoke-WslChecked -WslArgs @("-d", $Distro, "--exec", "sh", "-lc", "true") -FailureMessage "Failed to start '$Distro'"
 	Ok "'$Distro' is started"
+	Ensure-KeepAlive
+	Ensure-WslSshPortProxy
 }
 
 function Stop-Instance {
@@ -110,6 +197,11 @@ function Show-Status {
 	if ($state -eq "Running") {
 		Write-Host ""
 		wsl.exe -d $Distro --exec sh -lc "hostname; uptime -p; command -v hl >/dev/null 2>&1 && hl status --plain --no-services || true"
+		$wslIp = Get-WslIpv4
+		if ($wslIp) {
+			Write-Host ""
+			Write-Host "WSL SSH: localhost:$SshPort -> ${wslIp}:$SshPort"
+		}
 	} else {
 		Write-Host ""
 		Write-Host "Start it with:"

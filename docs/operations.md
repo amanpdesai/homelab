@@ -37,8 +37,8 @@ session by name.
 | Reload config | `Ctrl-a r` |
 | Copy mode (vi keys) | `Ctrl-a [` then `v` to select, `y` to yank |
 
-Convention: one tmux session per intent (`main`, `infra`,
-`<project>`). Detach instead of kill so context is preserved.
+Convention: name tmux sessions by what you are doing (`main`, `infra`,
+or any name you choose). Detach instead of kill so context is preserved.
 
 ## Updating things
 
@@ -113,7 +113,7 @@ wsl --terminate <distro>
    <name>-logs:  docker compose -f docker/<name>/compose.yaml logs -f
    ```
 3. If the service writes to disk: bind to a named volume or to a path
-   under `~/srv/data/<name>` (gitignored).
+   under `/srv/homelab/data/<name>`.
 4. Commit the compose file. Do not commit `.env`; commit `.env.example`
    if there are required variables.
 
@@ -140,9 +140,9 @@ The repo is reproducible. Data is not. Back up these from inside WSL:
 
 | Path | Why |
 | --- | --- |
-| `~/srv/projects/` | working code that is not yet pushed |
-| `~/srv/data/` | service databases, app state |
-| `~/srv/models/` | optional; large but redownloadable |
+| your project dirs | working code that is not yet pushed |
+| `/srv/homelab/data/` | service databases, app state |
+| `/srv/homelab/models/` | optional; large but redownloadable |
 | `~/.ssh/` | private keys, authorized_keys |
 | `~/.gitconfig` | personal git config (not the template) |
 
@@ -151,9 +151,9 @@ Local snapshot recipe (good enough until we add restic / borg):
 ```bash
 ts=$(date +%Y%m%d-%H%M%S)
 tar --exclude='*/node_modules' --exclude='*/.venv' --exclude='*/__pycache__' \
-    -czf "$HOME/srv/backups/projects-$ts.tar.gz" -C "$HOME/srv" projects
+    -czf "/srv/homelab/backups/home-projects-$ts.tar.gz" -C "$HOME" .
 
-docker run --rm -v ollama-data:/data -v "$HOME/srv/backups:/backup" alpine \
+docker run --rm -v ollama-data:/data -v "/srv/homelab/backups:/backup" alpine \
     sh -c "tar -czf /backup/ollama-data-$ts.tar.gz -C /data ."
 ```
 
@@ -162,13 +162,13 @@ B2, Cloudflare R2), borg to a remote box, or rsync to a NAS.
 
 ## Adding a project repo
 
+Project repos are not managed by homelab. Put them wherever you normally
+work, for example directly under your home directory:
+
 ```bash
-mkdir -p ~/srv/projects
-cd ~/srv/projects
+cd ~
 git clone git@github.com:<you>/<project>.git
-cd <project>
-# do not nest projects inside this homelab repo
 ```
 
-Project repos are independent. They show up under `~/srv/projects/`
-and are never tracked by `homelab`.
+Do not nest personal projects inside `/opt/homelab`; that path is only for
+the VM control repo.

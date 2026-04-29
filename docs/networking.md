@@ -1,6 +1,6 @@
 # Networking
 
-## Default WSL networking (and why we do not use it)
+## Default WSL networking
 
 By default WSL2 puts the guest behind a NAT on a private 172.x subnet.
 The Windows host can reach the guest, but inbound connections from
@@ -9,9 +9,18 @@ rules with `netsh interface portproxy`. The forwarded port also has to
 be opened in the Windows firewall, and the guest IP changes on each
 boot, so the rules need to be regenerated.
 
-We avoid all of that with mirrored networking.
+This repo uses that default NAT mode. `.\homelab.ps1 start` starts the
+distro and, when run as Administrator, refreshes:
 
-## Mirrored networking
+```text
+0.0.0.0:2222 on Windows -> <current WSL IPv4>:2222
+```
+
+`start` also launches a hidden `homelab-keepalive` process inside WSL. This
+keeps the distro resident so SSH sessions do not disappear when WSL decides
+there are no active Linux processes.
+
+## Optional mirrored networking
 
 Set in `wsl/wslconfig.example`:
 
@@ -40,10 +49,9 @@ Requirements:
 
 ## Tailscale wiring
 
-Primary path: Tailscale runs on the Windows host. Because mirrored
-networking shares loopback with the guest, the Windows tailscaled
-sees WSL services on `127.0.0.1` and forwards them to tailnet peers
-according to your ACLs.
+Primary path: Tailscale runs on the Windows host. Tailnet peers connect
+to Windows port 2222, and Windows forwards that to WSL sshd with
+`netsh interface portproxy`.
 
 Fallback path: install Tailscale inside the WSL distro
 (`make tailscale-wsl`) so the distro joins the tailnet as its own
@@ -51,7 +59,7 @@ node. Use this when mirrored networking misbehaves (rare, but seen on
 some Windows builds and certain enterprise networks).
 
 ```
-                 default mode (NAT)        mirrored mode (chosen)
+                 default mode (chosen)     mirrored mode (optional)
 phone -----------> tailscaled (Windows) ---> tailscaled (Windows)
                        |                          |
                    portproxy rule                 |  shared
@@ -93,7 +101,7 @@ ssh -v -p 2222 <wsl-user>@<magicdns-name>
 | Port | Service | Bound to | Exposed to |
 | ---- | ------- | -------- | ---------- |
 | 22    | Windows sshd | 0.0.0.0 on Windows      | tailnet only (Windows firewall + Tailscale ACL) |
-| 2222  | WSL sshd     | 0.0.0.0 inside WSL      | tailnet only via mirrored networking |
+| 2222  | WSL sshd     | 0.0.0.0 inside WSL      | tailnet via Windows portproxy |
 | 11434 | ollama     | 127.0.0.1 inside WSL    | tailnet only via Windows host loopback |
 | 3000+ | dev servers (vite, next, etc) | 127.0.0.1 inside WSL | tailnet, ad-hoc |
 
@@ -108,8 +116,9 @@ real public-on-LAN binding.
 
 1. On Windows: `tailscale status` -- is the host online and listed as
    `100.x.x.x`? If not, `tailscale up` and authenticate.
-2. On Windows: `Test-NetConnection 127.0.0.1 -Port 2222`. If false, WSL
-   sshd is not running. Open Ubuntu and `sudo systemctl status ssh`.
+2. On Windows: run `.\homelab.ps1 start` from Administrator PowerShell,
+   then `Test-NetConnection 127.0.0.1 -Port 2222`. If false, WSL sshd is
+   not running. Open Ubuntu and `sudo systemctl status ssh`.
 3. On phone tailnet device: `tailscale ping <host>`. If high latency
    or relayed via DERP, that is fine -- it should still connect.
 4. From phone Termius: ensure key is loaded; ensure the host name uses
@@ -121,6 +130,5 @@ real public-on-LAN binding.
 1. Confirm Win11 build: `winver` -- needs 22H2 or later.
 2. `wsl --shutdown` then re-enter. The mode applies on next boot only.
 3. Check `wsl --status` for the active networking mode.
-4. If broken: comment `networkingMode=mirrored`, `wsl --shutdown`,
-   re-enter, then run `make tailscale-wsl` so WSL joins the tailnet
-   directly.
+4. If broken: remove or comment `networkingMode=mirrored`, run
+   `wsl --shutdown`, then use the default NAT plus portproxy path.

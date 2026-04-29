@@ -50,10 +50,10 @@ if df_out=$(df -BG --output=size,used,pcent / 2>/dev/null | awk 'NR==2{print $1,
 	d_pct=$( echo "$df_out" | awk '{gsub("%","",$3); print $3}')
 fi
 
-srv_used="?"
-if [ -d "$HOME/srv" ]; then
-	srv_used=$(du -sBG "$HOME/srv" 2>/dev/null | awk '{gsub("G","",$1); print $1}' || echo "?")
-	[ -z "$srv_used" ] && srv_used="?"
+state_used="?"
+if [ -d /srv/homelab ]; then
+	state_used=$(du -sBG /srv/homelab 2>/dev/null | awk '{gsub("G","",$1); print $1}' || echo "?")
+	[ -z "$state_used" ] && state_used="?"
 fi
 
 gpu_line=""
@@ -88,7 +88,7 @@ render_motd() {
 	printf "  %-12s %s\n"                  "Load:"       "$load"
 	printf "  %-12s %s / %s GB (%s%%)\n"   "Memory:"     "$mem_used_gb" "$mem_total_gb" "$mem_pct"
 	printf "  %-12s %s / %s GB (%s%%)\n"   "Disk /:"     "$d_used"      "$d_size"       "$d_pct"
-	printf "  %-12s %s GB\n"               "Disk ~/srv:" "$srv_used"
+	printf "  %-12s %s GB\n"               "Disk /srv:"  "$state_used"
 	[ -n "$gpu_line" ] && printf "  %-12s %s\n" "GPU:"       "$gpu_line"
 	[ -n "$ts_line"  ] && printf "  %-12s %s\n" "Tailscale:" "$ts_line"
 	hl_dbl

@@ -12,7 +12,7 @@ usage() {
 	cat <<EOF
 hl doctor
   Run readiness checks for WSL, systemd, sshd, Docker, GPU, Tailscale,
-  compose stacks, disk space, repo paths, and SSH key permissions.
+  compose stacks, disk space, VM paths, and SSH key permissions.
 EOF
 }
 
@@ -52,8 +52,9 @@ check_unit() {
 hl_h1 "Host"
 if grep -qi microsoft /proc/version 2>/dev/null; then pass "running inside WSL"; else warn "not running inside WSL"; fi
 if hl_systemd_running; then pass "systemd running"; else fail "systemd not running; run wsl --shutdown from Windows after make bootstrap"; fi
-[ -d "$HOME/srv" ] && pass "~/srv exists" || warn "~/srv missing"
-[ "$HL_REPO" = "$HOME/srv/homelab" ] && pass "repo path is ~/srv/homelab" || warn "repo path is $HL_REPO, expected $HOME/srv/homelab"
+[ -d /opt/homelab ] && pass "/opt/homelab exists" || warn "/opt/homelab missing"
+[ -d /srv/homelab ] && pass "/srv/homelab exists" || warn "/srv/homelab missing"
+[ "$HL_REPO" = "/opt/homelab" ] && pass "repo path is /opt/homelab" || warn "repo path is $HL_REPO, expected /opt/homelab"
 
 hl_h1 "Core commands"
 for c in git make tmux ssh docker; do check_cmd "$c"; done

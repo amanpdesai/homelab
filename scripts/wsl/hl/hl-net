@@ -31,7 +31,7 @@ if hl_have_ts; then
 	fi
 else
 	printf "  %stailscale is not installed inside WSL.%s\n" "$C_DIM" "$C_RESET"
-	printf "  %sDefault path: tailscale runs on the Windows host (mirrored networking).%s\n" "$C_DIM" "$C_RESET"
+	printf "  %sDefault path: tailscale runs on Windows; WSL SSH is forwarded on port 2222.%s\n" "$C_DIM" "$C_RESET"
 fi
 
 # ---- listening ports -----------------------------------------------

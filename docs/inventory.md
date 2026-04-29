@@ -72,20 +72,21 @@ Get-CimInstance Win32_Processor | Select-Object VirtualizationFirmwareEnabled, S
 ## Filesystem layout (canonical)
 
 ```
-~/srv/
-  homelab/         this repo (git tracked)
-  projects/        per-project git repos
-  models/          gitignored, model weights
-  data/            gitignored, service data (or use named docker volumes)
-  backups/         gitignored, local snapshots
+/opt/homelab/       this repo (git tracked)
+/srv/homelab/
+  models/           model weights
+  data/             service data (or use named docker volumes)
+  backups/          local snapshots
   logs/
+
+/home/<user>/        personal shell home; projects are user-managed
 ```
 
 ## Repo
 
 - URL: https://github.com/amanpdesai/homelab (private)
 - Local clone at scaffold time: `C:\Users\amanp\homelab`
-- Target clone path inside WSL: `~/srv/homelab`
+- Target clone path inside WSL: `/opt/homelab`
 
 ## Out of scope (intentionally)
 

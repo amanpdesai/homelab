@@ -58,12 +58,13 @@ you should ever see for inbound SSH.
   If not, `tailscale up`.
 - On the client: `tailscale ping <magicdns>`. If this fails, the
   problem is the tailnet, not WSL.
-- On the host (Windows shell): `Test-NetConnection 127.0.0.1 -Port 22`.
-  If false, sshd is not running. Start WSL and run
-  `sudo systemctl status ssh`.
-- If mirrored networking is off and the default NAT is in effect,
-  install Tailscale inside WSL (`make tailscale-wsl`) so the WSL distro
-  joins the tailnet directly.
+- On the host (Administrator PowerShell): run `.\homelab.ps1 start`,
+  then `Test-NetConnection 127.0.0.1 -Port 2222`. If false, WSL sshd is
+  not running; open Ubuntu and run `sudo systemctl status ssh`.
+- If TCP connects and then immediately resets, confirm the keepalive is
+  running with `wsl -d Ubuntu --exec pgrep -af homelab-keepalive`.
+- As a fallback, install Tailscale inside WSL (`make tailscale-wsl`) so
+  the WSL distro joins the tailnet directly.
 
 ---
 
@@ -116,7 +117,7 @@ with a giant dataframe, Docker containers with no memory limit.
 been restarted since the change.
 
 ```bash
-sudo install -m 0644 ~/srv/homelab/wsl/wsl.conf /etc/wsl.conf
+sudo install -m 0644 /opt/homelab/wsl/wsl.conf /etc/wsl.conf
 exit
 # from Windows:
 wsl --shutdown

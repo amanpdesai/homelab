@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
-# hl disk  -- disk usage. With --ncdu, launch ncdu in ~/srv.
+# hl disk  -- disk usage. With --ncdu, launch ncdu in /srv/homelab.
 
 set -euo pipefail
 HL_BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HL_BIN_DIR/lib.sh"
 
 run_ncdu=0
-target="$HOME/srv"
+target="/srv/homelab"
 for a in "$@"; do
 	case "$a" in
 		--ncdu)  run_ncdu=1 ;;
 		-h|--help) cat <<EOF; exit 0
 hl disk [--ncdu] [path]
-  Show df + biggest dirs under ~/srv (or [path]).
+  Show df + biggest dirs under /srv/homelab (or [path]).
   --ncdu    drop into ncdu for interactive browsing.
 EOF
 		;;

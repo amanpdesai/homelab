@@ -14,12 +14,9 @@ processors=12
 swap=8GB
 swapFile=C:\\wsl-swap.vhdx
 
-# Mirrored networking shares the Windows network stack with WSL2 so
-# Tailscale on Windows can reach WSL2 ports directly. Requires Win11 22H2+.
-networkingMode=mirrored
-firewall=true
-dnsTunneling=true
-autoProxy=true
+# Use WSL2's default NAT networking. Windows forwards selected VM services
+# explicitly with netsh portproxy from homelab.ps1 start/restart.
+localhostForwarding=true
 
 # Useful for nested Docker, k8s playgrounds, etc.
 nestedVirtualization=true
@@ -33,6 +30,3 @@ autoMemoryReclaim=gradual
 
 # Sparse vhdx so the WSL disk image shrinks when files are deleted.
 sparseVhd=true
-
-# Allow Windows to reach WSL services on 127.0.0.1.
-hostAddressLoopback=true

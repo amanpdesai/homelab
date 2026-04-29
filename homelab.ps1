@@ -18,7 +18,7 @@ param(
 	[string]$Command = "status",
 	[string]$Distro = "",
 	[string]$User = "",
-	[int]$SshPort = 22
+	[int]$SshPort = 2222
 )
 
 $script = Join-Path $PSScriptRoot "scripts\windows\instance.ps1"
