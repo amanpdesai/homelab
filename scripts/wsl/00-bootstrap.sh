@@ -31,6 +31,20 @@ sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
 	rsync less man-db locales tzdata
 ok "Base packages installed"
 
+# This is a personal single-user VM. Keep sudo available for admin work, but do
+# not make every admin command stop for a password prompt.
+log "Configuring passwordless sudo for $USER"
+sudo usermod -aG sudo "$USER"
+sudo install -d -m 0750 /etc/sudoers.d
+sudo tee "/etc/sudoers.d/90-homelab-$USER-nopasswd" >/dev/null <<EOF
+Defaults:$USER verifypw=any
+Defaults:$USER listpw=never
+$USER ALL=(ALL:ALL) NOPASSWD:ALL
+EOF
+sudo chmod 0440 "/etc/sudoers.d/90-homelab-$USER-nopasswd"
+sudo visudo -cf "/etc/sudoers.d/90-homelab-$USER-nopasswd" >/dev/null
+ok "passwordless sudo enabled for $USER"
+
 # Snap creates ~/snap and extra mounts in WSL. This homelab image uses apt,
 # pipx, and direct installers instead, so keep Snap out of the base VM.
 if dpkg-query -W -f='${Status}' snapd 2>/dev/null | grep -q 'install ok installed'; then
