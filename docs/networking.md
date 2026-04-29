@@ -68,6 +68,7 @@ From Windows:
 tailscale status                # confirm we have a tailnet IP
 tailscale netcheck              # NAT type, derp latency
 Test-NetConnection 127.0.0.1 -Port 22
+Test-NetConnection 127.0.0.1 -Port 2222
 ```
 
 From WSL:
@@ -83,14 +84,16 @@ From another tailnet device:
 
 ```bash
 tailscale ping <magicdns-name>
-ssh -v <user>@<magicdns-name>   # -v shows whether key auth path is right
+ssh -v <windows-user>@<magicdns-name>
+ssh -v -p 2222 <wsl-user>@<magicdns-name>
 ```
 
 ## Common port assignments
 
 | Port | Service | Bound to | Exposed to |
 | ---- | ------- | -------- | ---------- |
-| 22    | sshd       | 0.0.0.0 (sshd default)  | tailnet only (Windows firewall + Tailscale ACL) |
+| 22    | Windows sshd | 0.0.0.0 on Windows      | tailnet only (Windows firewall + Tailscale ACL) |
+| 2222  | WSL sshd     | 0.0.0.0 inside WSL      | tailnet only via mirrored networking |
 | 11434 | ollama     | 127.0.0.1 inside WSL    | tailnet only via Windows host loopback |
 | 3000+ | dev servers (vite, next, etc) | 127.0.0.1 inside WSL | tailnet, ad-hoc |
 
@@ -105,12 +108,13 @@ real public-on-LAN binding.
 
 1. On Windows: `tailscale status` -- is the host online and listed as
    `100.x.x.x`? If not, `tailscale up` and authenticate.
-2. On Windows: `Test-NetConnection 127.0.0.1 -Port 22`. If false, WSL
+2. On Windows: `Test-NetConnection 127.0.0.1 -Port 2222`. If false, WSL
    sshd is not running. Open Ubuntu and `sudo systemctl status ssh`.
 3. On phone tailnet device: `tailscale ping <host>`. If high latency
    or relayed via DERP, that is fine -- it should still connect.
 4. From phone Termius: ensure key is loaded; ensure the host name uses
-   the MagicDNS short name, not a 100.x IP, so ACLs match.
+   the MagicDNS short name, not a 100.x IP, so ACLs match. Use port 2222
+   for WSL homelab SSH; port 22 is the Windows host SSH admin shell.
 
 ### "Mirrored networking does not seem to work"
 

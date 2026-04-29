@@ -34,7 +34,7 @@ ollama-logs:  ## Tail Ollama logs
 status:  ## Quick environment snapshot
 	@echo "uname:     $$(uname -a)"
 	@if [ -f /etc/os-release ]; then . /etc/os-release; echo "distro:    $$PRETTY_NAME"; fi
-	@if pidof systemd >/dev/null 2>&1; then echo "systemd:   running"; else echo "systemd:   not running"; fi
+	@if [ "$$(cat /proc/1/comm 2>/dev/null)" = "systemd" ]; then echo "systemd:   running"; else echo "systemd:   not running"; fi
 	@if command -v docker >/dev/null 2>&1; then echo "docker:    $$(docker --version)"; else echo "docker:    not installed"; fi
 	@if command -v tailscale >/dev/null 2>&1; then echo "tailscale: $$(tailscale version | head -1)"; else echo "tailscale: not installed"; fi
 	@if command -v nvidia-smi >/dev/null 2>&1; then nvidia-smi --query-gpu=name,memory.total,memory.free --format=csv,noheader | sed 's/^/gpu:       /'; else echo "gpu:       no nvidia-smi"; fi

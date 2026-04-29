@@ -17,7 +17,7 @@
 |   |   +------------------------------------------+       |   |
 |   |   | Ubuntu distro                            |       |   |
 |   |   |   - systemd PID 1                        |       |   |
-|   |   |   - sshd (port 22, key auth only)        |       |   |
+|   |   |   - sshd (port 2222, key auth only)      |       |   |
 |   |   |   - dockerd (Engine, native install)     |       |   |
 |   |   |   - optional tailscaled (fallback path)  |       |   |
 |   |   |   - user workspace under ~/srv/          |       |   |
@@ -29,9 +29,8 @@
 ## Boot flow
 
 1. Windows boots; nothing WSL-related runs yet.
-2. First command that touches WSL (`wsl`, opening Ubuntu, an `ssh` from
-   the tailnet hitting port 22 with mirrored networking) starts the
-   utility VM.
+2. First command that touches WSL (`wsl`, opening Ubuntu, or SSH to the
+   WSL homelab port through mirrored networking) starts the utility VM.
 3. The utility VM boots the Ubuntu distro under systemd, because
    `/etc/wsl.conf` has `[boot] systemd=true`.
 4. systemd starts enabled units: `ssh`, `docker`, optionally `tailscaled`.
@@ -49,7 +48,7 @@ inside the VM unless explicitly stopped.
 
 ```
 phone (Termius) --[WireGuard tunnel]--> tailscaled (Windows)
-   --[mirrored networking shares :22]--> sshd (WSL Ubuntu)
+   --[mirrored networking shares :2222]--> sshd (WSL Ubuntu)
    --[bash + optional tmux]-->  ~/srv shell
 ```
 

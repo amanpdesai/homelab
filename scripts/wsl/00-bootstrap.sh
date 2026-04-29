@@ -39,10 +39,13 @@ fi
 sudo sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config
 sudo sed -i 's/^#\?PubkeyAuthentication.*/PubkeyAuthentication yes/' /etc/ssh/sshd_config
 sudo sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin no/'             /etc/ssh/sshd_config
+sudo install -d -m 0755 /etc/ssh/sshd_config.d
+printf '%s\n' 'Port 2222' | sudo tee /etc/ssh/sshd_config.d/10-homelab-port.conf >/dev/null
 
 if pidof systemd >/dev/null 2>&1; then
+	sudo systemctl disable --now ssh.socket >/dev/null 2>&1 || true
 	sudo systemctl enable --now ssh
-	ok "sshd enabled via systemd"
+	ok "sshd enabled via systemd on port 2222"
 else
 	warn "systemd not running yet -- run 'wsl --shutdown' from Windows, then re-run this script."
 fi

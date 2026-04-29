@@ -10,7 +10,7 @@
 3. Verify perms inside WSL:
    `chmod 700 ~/.ssh && chmod 600 ~/.ssh/authorized_keys`
 4. From the new device on the tailnet:
-   `ssh <wsl-user>@<magicdns-name>`
+   `ssh -p 2222 <wsl-user>@<magicdns-name>`
 5. The login banner prints a compact `hl status --motd` snapshot. Run
    `tm main` if you want a persistent tmux session.
 

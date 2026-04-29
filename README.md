@@ -115,10 +115,12 @@ that `/etc/wsl.conf`'s `systemd=true` takes effect.
    for example `your-pc.tailxxxx.ts.net`.
 2. Inside WSL, append your laptop or phone public key to
    `~/.ssh/authorized_keys`.
-3. Termius profile: host is the MagicDNS name, port 22, user is your WSL
-   username, key authentication.
-4. With mirrored networking, the Windows host's port 22 forwards to the
-   WSL sshd. If that fails on your Windows build, run `make tailscale-wsl`
+3. Termius profile for WSL homelab: host is the MagicDNS name, port 2222,
+   user is your WSL username, key authentication.
+   Windows host SSH uses port 22.
+4. With mirrored networking, the Windows host's tailnet IP can reach WSL
+   sshd on port 2222. Windows host SSH remains on port 22 for admin/reboot.
+   If mirrored networking fails on your Windows build, run `make tailscale-wsl`
    inside WSL and connect to the WSL Tailscale node directly.
 
 ## Conventions

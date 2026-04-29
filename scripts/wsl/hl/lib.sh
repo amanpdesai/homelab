@@ -138,6 +138,7 @@ hl_have_gpu()     { command -v nvidia-smi  >/dev/null 2>&1; }
 hl_have_ts()      { command -v tailscale   >/dev/null 2>&1; }
 hl_have_docker()  { command -v docker      >/dev/null 2>&1; }
 hl_docker_ready() { hl_have_docker && docker info >/dev/null 2>&1; }
+hl_systemd_running() { [ "$(cat /proc/1/comm 2>/dev/null)" = "systemd" ]; }
 
 # ---- usage helper --------------------------------------------------
 hl_usage_die() {

@@ -36,7 +36,7 @@ check_path_or_cmd() {
 
 check_unit() {
 	local unit="$1" label="${2:-$1}"
-	if ! command -v systemctl >/dev/null 2>&1 || ! pidof systemd >/dev/null 2>&1; then
+	if ! command -v systemctl >/dev/null 2>&1 || ! hl_systemd_running; then
 		warn "cannot check $label; systemd is not running"
 		return
 	fi
@@ -51,7 +51,7 @@ check_unit() {
 
 hl_h1 "Host"
 if grep -qi microsoft /proc/version 2>/dev/null; then pass "running inside WSL"; else warn "not running inside WSL"; fi
-if pidof systemd >/dev/null 2>&1; then pass "systemd running"; else fail "systemd not running; run wsl --shutdown from Windows after make bootstrap"; fi
+if hl_systemd_running; then pass "systemd running"; else fail "systemd not running; run wsl --shutdown from Windows after make bootstrap"; fi
 [ -d "$HOME/srv" ] && pass "~/srv exists" || warn "~/srv missing"
 [ "$HL_REPO" = "$HOME/srv/homelab" ] && pass "repo path is ~/srv/homelab" || warn "repo path is $HL_REPO, expected $HOME/srv/homelab"
 
