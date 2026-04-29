@@ -40,7 +40,8 @@ else                                       SYSMON=top
 fi
 
 if hl_have_gpu; then
-	GPU_CMD='watch -t -n 2 "nvidia-smi --query-gpu=name,memory.used,memory.total,utilization.gpu,temperature.gpu --format=csv,noheader && echo && echo --- compute apps --- && nvidia-smi --query-compute-apps=pid,process_name,used_memory --format=csv,noheader 2>/dev/null"'
+	NVIDIA_SMI="$(hl_nvidia_smi)"
+	GPU_CMD="watch -t -n 2 \"$NVIDIA_SMI --query-gpu=name,memory.used,memory.total,utilization.gpu,temperature.gpu --format=csv,noheader && echo && echo --- compute apps --- && $NVIDIA_SMI --query-compute-apps=pid,process_name,used_memory --format=csv,noheader 2>/dev/null\""
 else
 	GPU_CMD='watch -t -n 10 "echo nvidia-smi not found; echo; echo GPU pane will populate after the NVIDIA WSL driver is available."'
 fi

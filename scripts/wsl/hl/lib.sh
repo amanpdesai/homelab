@@ -134,7 +134,16 @@ hl_resolve_stack() {
 }
 
 # ---- environment probes --------------------------------------------
-hl_have_gpu()     { command -v nvidia-smi  >/dev/null 2>&1; }
+hl_nvidia_smi() {
+	if command -v nvidia-smi >/dev/null 2>&1; then
+		command -v nvidia-smi
+	elif [ -x /usr/lib/wsl/lib/nvidia-smi ]; then
+		printf "%s\n" /usr/lib/wsl/lib/nvidia-smi
+	else
+		return 1
+	fi
+}
+hl_have_gpu()     { hl_nvidia_smi >/dev/null 2>&1; }
 hl_have_ts()      { command -v tailscale   >/dev/null 2>&1; }
 hl_have_docker()  { command -v docker      >/dev/null 2>&1; }
 hl_docker_ready() { hl_have_docker && docker info >/dev/null 2>&1; }

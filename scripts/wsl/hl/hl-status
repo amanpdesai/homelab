@@ -58,7 +58,7 @@ fi
 
 gpu_line=""
 if hl_have_gpu; then
-	gpu_csv=$(nvidia-smi --query-gpu=name,memory.total,memory.used,utilization.gpu,temperature.gpu --format=csv,noheader,nounits 2>/dev/null | head -1 || true)
+	gpu_csv=$("$(hl_nvidia_smi)" --query-gpu=name,memory.total,memory.used,utilization.gpu,temperature.gpu --format=csv,noheader,nounits 2>/dev/null | head -1 || true)
 	if [ -n "$gpu_csv" ]; then
 		IFS=, read -r g_name g_total g_used g_util g_temp <<<"$gpu_csv"
 		g_name="${g_name# }"; g_total="${g_total# }"; g_used="${g_used# }"; g_util="${g_util# }"; g_temp="${g_temp# }"

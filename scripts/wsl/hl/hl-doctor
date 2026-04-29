@@ -101,7 +101,7 @@ fi
 hl_h1 "GPU"
 if hl_have_gpu; then
 	pass "nvidia-smi available"
-	nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv,noheader 2>/dev/null | sed 's/^/  info  /' || true
+	"$(hl_nvidia_smi)" --query-gpu=name,memory.total,driver_version --format=csv,noheader 2>/dev/null | sed 's/^/  info  /' || true
 else
 	warn "nvidia-smi not found; GPU workloads will not work yet"
 fi

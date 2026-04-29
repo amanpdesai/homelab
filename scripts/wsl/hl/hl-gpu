@@ -19,10 +19,11 @@ EOF
 done
 
 hl_have_gpu || hl_die "nvidia-smi not found -- is the NVIDIA driver / WSL CUDA shim available?"
+NVIDIA_SMI="$(hl_nvidia_smi)"
 
 render() {
 	hl_h1 "GPU"
-	nvidia-smi \
+	"$NVIDIA_SMI" \
 		--query-gpu=index,name,driver_version,memory.total,memory.used,memory.free,utilization.gpu,temperature.gpu,power.draw,power.limit \
 		--format=csv 2>/dev/null \
 	  | column -t -s, \
@@ -31,7 +32,7 @@ render() {
 	echo
 	hl_h1 "VRAM users"
 	local procs
-	procs=$(nvidia-smi --query-compute-apps=pid,process_name,used_memory --format=csv,noheader 2>/dev/null || true)
+	procs=$("$NVIDIA_SMI" --query-compute-apps=pid,process_name,used_memory --format=csv,noheader 2>/dev/null || true)
 	if [ -z "$procs" ]; then
 		printf "  %sno compute processes on the GPU%s\n" "$C_DIM" "$C_RESET"
 	else

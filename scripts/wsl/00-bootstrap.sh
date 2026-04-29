@@ -67,6 +67,14 @@ else
 	warn "systemd not running yet -- run 'wsl --shutdown' from Windows, then re-run this script."
 fi
 
+# WSL exposes the Windows GPU shim at /usr/lib/wsl/lib. Some SSH sessions
+# can miss that directory in PATH, so publish nvidia-smi in a standard bin.
+if [ -x /usr/lib/wsl/lib/nvidia-smi ]; then
+	log "Configuring WSL GPU command path"
+	sudo ln -sfn /usr/lib/wsl/lib/nvidia-smi /usr/local/bin/nvidia-smi
+	ok "nvidia-smi available via /usr/local/bin"
+fi
+
 # VM-level service layout. Personal projects intentionally stay wherever the
 # user wants them; this repo does not own a project workspace.
 log "Creating /srv/homelab layout"
