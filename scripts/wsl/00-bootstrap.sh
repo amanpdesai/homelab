@@ -81,6 +81,29 @@ else
 	warn "systemd not running yet -- run 'wsl --shutdown' from Windows, then re-run this script."
 fi
 
+# Keep WSL resident for SSH access. Windows can start/stop the distro with
+# homelab.ps1; this service prevents WSL from idling out between SSH sessions.
+log "Configuring homelab keepalive service"
+cat <<'EOF' | sudo tee /etc/systemd/system/homelab-keepalive.service >/dev/null
+[Unit]
+Description=Keep WSL homelab resident for SSH access
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/bin/bash -lc 'exec -a homelab-keepalive sleep infinity'
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
+EOF
+if pidof systemd >/dev/null 2>&1; then
+	sudo systemctl daemon-reload
+	sudo systemctl enable --now homelab-keepalive.service
+	ok "homelab keepalive enabled"
+fi
+
 # WSL exposes the Windows GPU shim at /usr/lib/wsl/lib. Some SSH sessions
 # can miss that directory in PATH, so publish nvidia-smi in a standard bin.
 if [ -x /usr/lib/wsl/lib/nvidia-smi ]; then

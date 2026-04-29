@@ -74,9 +74,20 @@ From Windows:
 .\homelab.ps1 ssh -User <wsl-user>
 ```
 
+After running `scripts\windows\install-hl-profile.ps1` once, the same Windows
+lifecycle commands are available from any new PowerShell session:
+
+```powershell
+hl status
+hl start
+hl stop
+hl restart
+```
+
 Under the hood this auto-selects `Ubuntu-24.04`, `Ubuntu`, or the first
 non-Docker WSL distro, then uses `wsl -d <distro>` to start it and
-`wsl --terminate <distro>` to stop it. It does not auto-attach tmux.
+`wsl --terminate <distro>` to stop it. `start` keeps the distro resident with
+the WSL systemd `homelab-keepalive` service. It does not auto-attach tmux.
 
 ```bash
 # sshd (inside WSL)

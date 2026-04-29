@@ -16,9 +16,10 @@ distro and, when run as Administrator, refreshes:
 0.0.0.0:2222 on Windows -> <current WSL IPv4>:2222
 ```
 
-`start` also launches a hidden `homelab-keepalive` process inside WSL. This
+`start` also starts the systemd `homelab-keepalive` service inside WSL. This
 keeps the distro resident so SSH sessions do not disappear when WSL decides
-there are no active Linux processes.
+there are no active Linux processes or when the Windows SSH session that
+started it disconnects.
 
 ## Optional mirrored networking
 

@@ -32,6 +32,7 @@ function Die($m)  { Write-Host "[err] $m" -ForegroundColor Red; exit 1 }
 
 $PortProxyRuleName = "Homelab-WSL-SSH-$SshPort"
 $KeepAliveName = "homelab-keepalive"
+$KeepAliveUnit = "homelab-keepalive.service"
 
 function Test-IsAdmin {
 	$identity = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -59,24 +60,41 @@ function Invoke-WslChecked {
 	if ($LASTEXITCODE -ne 0) { Die $FailureMessage }
 }
 
-function Start-WindowsProcessHidden {
-	param(
-		[string]$FilePath,
-		[string[]]$ArgumentList
-	)
-	$quotedArgs = $ArgumentList | ForEach-Object {
-		if ($_ -match '[\s"]') {
-			'"' + ($_ -replace '"', '\"') + '"'
-		} else {
-			$_
-		}
-	}
-	Start-Process -FilePath $FilePath -ArgumentList ($quotedArgs -join " ") -WindowStyle Hidden
-}
-
 function Test-KeepAlive {
 	$null = (wsl.exe -d $Distro --exec sh -lc "pgrep -f '^$KeepAliveName ' >/dev/null") 2>$null
 	return ($LASTEXITCODE -eq 0)
+}
+
+function Remove-StaleKeepAliveTask {
+	$taskName = "Homelab-KeepAlive-$Distro"
+	$task = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
+	if ($task) {
+		Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
+	}
+}
+
+function Ensure-KeepAliveUnit {
+	$unitScript = @'
+cat >/etc/systemd/system/homelab-keepalive.service <<'EOF'
+[Unit]
+Description=Keep WSL homelab resident for SSH access
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/bin/bash -lc 'exec -a homelab-keepalive sleep infinity'
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
+EOF
+systemctl daemon-reload
+systemctl enable --now homelab-keepalive.service
+'@
+	Invoke-WslChecked `
+		-WslArgs @("-d", $Distro, "-u", "root", "--exec", "sh", "-lc", $unitScript) `
+		-FailureMessage "Failed to enable WSL keepalive service."
 }
 
 function Ensure-KeepAlive {
@@ -85,18 +103,21 @@ function Ensure-KeepAlive {
 		return
 	}
 
-	Info "Starting hidden WSL keepalive process"
-	Start-WindowsProcessHidden -FilePath "wsl.exe" -ArgumentList @(
-		"-d", $Distro,
-		"--exec", "bash", "-lc",
-		"exec -a $KeepAliveName sleep infinity"
-	)
-	Start-Sleep -Milliseconds 500
-	if (-not (Test-KeepAlive)) {
-		Warn "Could not confirm keepalive process. WSL may stop when idle."
-		return
+	Remove-StaleKeepAliveTask
+	Info "Starting WSL keepalive systemd service"
+	Ensure-KeepAliveUnit
+	for ($i = 0; $i -lt 20; $i++) {
+		Start-Sleep -Milliseconds 500
+		if (Test-KeepAlive) {
+			Ok "keepalive process is running"
+			return
+		}
 	}
-	Ok "keepalive process is running"
+	Warn "Could not confirm keepalive process. WSL may stop when idle."
+}
+
+function Stop-KeepAlive {
+	wsl.exe -d $Distro -u root --exec systemctl stop $KeepAliveUnit 2>$null
 }
 
 function Get-WslIpv4 {
@@ -185,6 +206,7 @@ function Start-Instance {
 function Stop-Instance {
 	Ensure-Wsl
 	Info "Stopping WSL distro '$Distro'"
+	Stop-KeepAlive
 	Invoke-WslChecked -WslArgs @("--terminate", $Distro) -FailureMessage "Failed to stop '$Distro'"
 	Ok "'$Distro' is stopped"
 }
@@ -205,6 +227,7 @@ function Show-Status {
 	} else {
 		Write-Host ""
 		Write-Host "Start it with:"
+		Write-Host "  hl start"
 		Write-Host "  .\homelab.ps1 start"
 	}
 }
