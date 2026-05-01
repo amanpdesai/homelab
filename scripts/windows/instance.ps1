@@ -80,12 +80,11 @@ function Start-WindowsKeepAlive {
 	}
 
 	$wslPath = Join-Path $env:WINDIR "System32\wsl.exe"
-	$command = "$wslPath -d $Distro --exec sleep infinity"
-	$result = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{ CommandLine = $command }
-	if ($result.ReturnValue -ne 0) {
-		Warn "Could not start Windows keepalive process via WMI (code $($result.ReturnValue))."
-		return
-	}
+	Start-Process `
+		-FilePath $wslPath `
+		-ArgumentList @("-d", $Distro, "--exec", "sleep", "infinity") `
+		-WindowStyle Hidden `
+		-ErrorAction Stop | Out-Null
 	Start-Sleep -Milliseconds 500
 	if (Test-WindowsKeepAlive) {
 		Ok "Windows keepalive process is running"
