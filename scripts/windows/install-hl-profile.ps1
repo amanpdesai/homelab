@@ -1,6 +1,7 @@
 <#
-Install a Windows PowerShell helper so `hl start`, `hl stop`, and
-`hl status` control the homelab WSL instance from any PowerShell prompt.
+Install a Windows command shim and PowerShell helper so `hl start`, `hl stop`,
+and `hl status` control the homelab WSL instance from SSH, cmd.exe, and
+PowerShell prompts.
 #>
 
 [CmdletBinding()]
@@ -57,6 +58,47 @@ function Install-HlProfileBlock {
 	Write-Host "[ok] installed hl helper in $ProfilePath" -ForegroundColor Green
 }
 
+function Add-UserPath {
+	param([string]$PathToAdd)
+
+	$userPath = [Environment]::GetEnvironmentVariable("Path", "User")
+	$parts = @()
+	if ($userPath) {
+		$parts = $userPath -split ";" | Where-Object { $_ }
+	}
+	$alreadyPresent = $parts | Where-Object {
+		$_.TrimEnd("\") -ieq $PathToAdd.TrimEnd("\")
+	} | Select-Object -First 1
+
+	if (-not $alreadyPresent) {
+		$newPath = (@($parts) + $PathToAdd) -join ";"
+		[Environment]::SetEnvironmentVariable("Path", $newPath, "User")
+		Write-Host "[ok] added $PathToAdd to the user PATH" -ForegroundColor Green
+	}
+
+	$currentParts = $env:Path -split ";" | Where-Object { $_ }
+	$currentPresent = $currentParts | Where-Object {
+		$_.TrimEnd("\") -ieq $PathToAdd.TrimEnd("\")
+	} | Select-Object -First 1
+	if (-not $currentPresent) {
+		$env:Path = (@($currentParts) + $PathToAdd) -join ";"
+	}
+}
+
+function Install-HlCommandShim {
+	$binDir = Join-Path $env:USERPROFILE "bin"
+	New-Item -ItemType Directory -Force -Path $binDir | Out-Null
+
+	$shimPath = Join-Path $binDir "hl.cmd"
+	$shim = @"
+@echo off
+powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "$homelab" %*
+"@
+	Set-Content -Path $shimPath -Value $shim -Encoding ASCII
+	Add-UserPath -PathToAdd $binDir
+	Write-Host "[ok] installed hl command shim in $shimPath" -ForegroundColor Green
+}
+
 $documents = [Environment]::GetFolderPath("MyDocuments")
 $profilePaths = @(
 	(Join-Path $documents "WindowsPowerShell\profile.ps1"),
@@ -69,4 +111,6 @@ foreach ($profilePath in $profilePaths) {
 	Install-HlProfileBlock -ProfilePath $profilePath
 }
 
-Write-Host "Open a new PowerShell session, then run: hl status" -ForegroundColor Cyan
+Install-HlCommandShim
+
+Write-Host "Open a new shell or SSH session, then run: hl status" -ForegroundColor Cyan
