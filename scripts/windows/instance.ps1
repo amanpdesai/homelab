@@ -34,6 +34,10 @@ $PortProxyRuleName = "Homelab-WSL-SSH-$SshPort"
 $KeepAliveName = "homelab-keepalive"
 $KeepAliveUnit = "homelab-keepalive.service"
 
+function Get-KeepAliveTaskName {
+	return "Homelab-KeepAlive-$Distro"
+}
+
 function Test-IsAdmin {
 	$identity = [Security.Principal.WindowsIdentity]::GetCurrent()
 	$principal = [Security.Principal.WindowsPrincipal]::new($identity)
@@ -70,42 +74,65 @@ function Test-WindowsKeepAlive {
 	$proc = Get-CimInstance Win32_Process -Filter "name='wsl.exe'" -ErrorAction SilentlyContinue |
 		Where-Object { $_.CommandLine -like "*$needle*" } |
 		Select-Object -First 1
-	return [bool]$proc
+	if ($proc) { return $true }
+
+	$task = Get-ScheduledTask -TaskName (Get-KeepAliveTaskName) -ErrorAction SilentlyContinue
+	return ($task -and $task.State -eq "Running")
+}
+
+function Ensure-WindowsKeepAliveTask {
+	$taskName = Get-KeepAliveTaskName
+	$wslPath = Join-Path $env:WINDIR "System32\wsl.exe"
+	$arguments = "-d $Distro --exec sleep infinity"
+	$identity = [Security.Principal.WindowsIdentity]::GetCurrent().Name
+
+	$action = New-ScheduledTaskAction -Execute $wslPath -Argument $arguments
+	$trigger = New-ScheduledTaskTrigger -Once -At ([DateTime]::Today.AddYears(10))
+	$settings = New-ScheduledTaskSettingsSet `
+		-AllowStartIfOnBatteries `
+		-DontStopIfGoingOnBatteries `
+		-ExecutionTimeLimit ([TimeSpan]::Zero) `
+		-Hidden
+	$principal = New-ScheduledTaskPrincipal `
+		-UserId $identity `
+		-LogonType Interactive `
+		-RunLevel Limited
+
+	Register-ScheduledTask `
+		-TaskName $taskName `
+		-Action $action `
+		-Trigger $trigger `
+		-Settings $settings `
+		-Principal $principal `
+		-Force | Out-Null
 }
 
 function Start-WindowsKeepAlive {
 	if (Test-WindowsKeepAlive) {
-		Ok "Windows keepalive process is running"
+		Ok "Windows scheduled-task keepalive is running"
 		return
 	}
 
-	$wslPath = Join-Path $env:WINDIR "System32\wsl.exe"
-	Start-Process `
-		-FilePath $wslPath `
-		-ArgumentList @("-d", $Distro, "--exec", "sleep", "infinity") `
-		-WindowStyle Hidden `
-		-ErrorAction Stop | Out-Null
-	Start-Sleep -Milliseconds 500
+	Ensure-WindowsKeepAliveTask
+	Start-ScheduledTask -TaskName (Get-KeepAliveTaskName)
+	Start-Sleep -Seconds 2
 	if (Test-WindowsKeepAlive) {
-		Ok "Windows keepalive process is running"
+		Ok "Windows scheduled-task keepalive is running"
 	} else {
-		Warn "Windows keepalive process started but was not found."
+		Warn "Windows scheduled-task keepalive started but was not confirmed."
 	}
 }
 
 function Stop-WindowsKeepAlive {
+	$task = Get-ScheduledTask -TaskName (Get-KeepAliveTaskName) -ErrorAction SilentlyContinue
+	if ($task -and $task.State -eq "Running") {
+		Stop-ScheduledTask -TaskName (Get-KeepAliveTaskName) -ErrorAction SilentlyContinue
+	}
+
 	$needle = "-d $Distro --exec sleep infinity"
 	Get-CimInstance Win32_Process -Filter "name='wsl.exe'" -ErrorAction SilentlyContinue |
 		Where-Object { $_.CommandLine -like "*$needle*" } |
 		ForEach-Object { Invoke-CimMethod -InputObject $_ -MethodName Terminate -ErrorAction SilentlyContinue | Out-Null }
-}
-
-function Remove-StaleKeepAliveTask {
-	$taskName = "Homelab-KeepAlive-$Distro"
-	$task = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
-	if ($task) {
-		Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
-	}
 }
 
 function Ensure-KeepAliveUnit {
@@ -139,7 +166,6 @@ function Ensure-KeepAlive {
 		return
 	}
 
-	Remove-StaleKeepAliveTask
 	Info "Starting WSL keepalive systemd service"
 	Ensure-KeepAliveUnit
 	for ($i = 0; $i -lt 20; $i++) {

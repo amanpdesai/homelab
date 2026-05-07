@@ -87,7 +87,7 @@ hl restart
 Under the hood this auto-selects `Ubuntu-24.04`, `Ubuntu`, or the first
 non-Docker WSL distro, then uses `wsl -d <distro>` to start it and
 `wsl --terminate <distro>` to stop it. `start` keeps the distro resident with
-a detached Windows keepalive process and the WSL systemd
+a hidden Windows scheduled-task keepalive and the WSL systemd
 `homelab-keepalive` service. It does not auto-attach tmux.
 
 ```bash

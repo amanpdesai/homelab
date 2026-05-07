@@ -16,10 +16,9 @@ distro and, when run as Administrator, refreshes:
 0.0.0.0:2222 on Windows -> <current WSL IPv4>:2222
 ```
 
-`start` also starts a detached Windows keepalive process plus the systemd
-`homelab-keepalive` service inside WSL. The Windows process keeps the WSL
-utility VM resident; the systemd service gives the Linux side a clear health
-signal.
+`start` also starts a hidden Windows scheduled-task keepalive plus the systemd
+`homelab-keepalive` service inside WSL. The Windows task keeps the WSL utility
+VM resident; the systemd service gives the Linux side a clear health signal.
 
 ## Optional mirrored networking
 

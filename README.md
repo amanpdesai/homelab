@@ -95,7 +95,7 @@ tailscale up
 `start` and `restart` should be run from Administrator PowerShell when you
 want WSL SSH reachable from another tailnet device; that lets the script keep
 `0.0.0.0:2222 -> WSL:2222` current.
-It also starts a detached Windows keepalive process plus a systemd
+It also starts a hidden Windows scheduled-task keepalive plus a systemd
 `homelab-keepalive` process inside WSL, so the distro stays online for SSH
 instead of idling out between sessions or dying when a Windows SSH session
 disconnects.
