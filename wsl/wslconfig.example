@@ -4,6 +4,10 @@
 # Reference: https://learn.microsoft.com/en-us/windows/wsl/wsl-config
 
 [wsl2]
+# Keep the backing WSL2 VM resident while this PC is on. The Windows `hl`
+# helper also starts a non-interactive scheduled task to keep the distro alive.
+vmIdleTimeout=-1
+
 # Cap RAM so games are not starved. Tune up if dev workloads need more.
 memory=16GB
 

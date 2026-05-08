@@ -34,10 +34,6 @@ $PortProxyRuleName = "Homelab-WSL-SSH-$SshPort"
 $KeepAliveName = "homelab-keepalive"
 $KeepAliveUnit = "homelab-keepalive.service"
 
-function Get-KeepAliveTaskName {
-	return "Homelab-KeepAlive-$Distro"
-}
-
 function Test-IsAdmin {
 	$identity = [Security.Principal.WindowsIdentity]::GetCurrent()
 	$principal = [Security.Principal.WindowsPrincipal]::new($identity)
@@ -69,13 +65,11 @@ function Test-KeepAlive {
 	return ($LASTEXITCODE -eq 0)
 }
 
-function Test-WindowsKeepAlive {
-	$needle = "-d $Distro --exec sleep infinity"
-	$proc = Get-CimInstance Win32_Process -Filter "name='wsl.exe'" -ErrorAction SilentlyContinue |
-		Where-Object { $_.CommandLine -like "*$needle*" } |
-		Select-Object -First 1
-	if ($proc) { return $true }
+function Get-KeepAliveTaskName {
+	return "Homelab-KeepAlive-$Distro"
+}
 
+function Test-WindowsKeepAlive {
 	$task = Get-ScheduledTask -TaskName (Get-KeepAliveTaskName) -ErrorAction SilentlyContinue
 	return ($task -and $task.State -eq "Running")
 }
@@ -95,7 +89,7 @@ function Ensure-WindowsKeepAliveTask {
 		-Hidden
 	$principal = New-ScheduledTaskPrincipal `
 		-UserId $identity `
-		-LogonType Interactive `
+		-LogonType S4U `
 		-RunLevel Limited
 
 	Register-ScheduledTask `
@@ -109,7 +103,7 @@ function Ensure-WindowsKeepAliveTask {
 
 function Start-WindowsKeepAlive {
 	if (Test-WindowsKeepAlive) {
-		Ok "Windows scheduled-task keepalive is running"
+		Ok "Windows non-interactive keepalive task is running"
 		return
 	}
 
@@ -117,16 +111,36 @@ function Start-WindowsKeepAlive {
 	Start-ScheduledTask -TaskName (Get-KeepAliveTaskName)
 	Start-Sleep -Seconds 2
 	if (Test-WindowsKeepAlive) {
-		Ok "Windows scheduled-task keepalive is running"
+		Ok "Windows non-interactive keepalive task is running"
 	} else {
-		Warn "Windows scheduled-task keepalive started but was not confirmed."
+		Warn "Windows non-interactive keepalive task started but was not confirmed."
+	}
+}
+
+function Test-WslVmIdleTimeout {
+	$configPath = Join-Path $env:USERPROFILE ".wslconfig"
+	if (-not (Test-Path $configPath)) { return $false }
+	$config = Get-Content -Raw -Path $configPath
+	return ($config -match "(?m)^\s*vmIdleTimeout\s*=\s*-1\s*$")
+}
+
+function Ensure-WslVmIdleTimeout {
+	if (Test-WslVmIdleTimeout) {
+		Ok "WSL VM idle timeout is disabled"
+	} else {
+		Warn "WSL VM idle timeout is not disabled in %USERPROFILE%\.wslconfig."
+		Write-Host "      Run scripts\windows\00-prereqs.ps1, then wsl --shutdown, to apply the recommended WSL config."
 	}
 }
 
 function Stop-WindowsKeepAlive {
-	$task = Get-ScheduledTask -TaskName (Get-KeepAliveTaskName) -ErrorAction SilentlyContinue
+	$taskName = Get-KeepAliveTaskName
+	$task = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
 	if ($task -and $task.State -eq "Running") {
-		Stop-ScheduledTask -TaskName (Get-KeepAliveTaskName) -ErrorAction SilentlyContinue
+		Stop-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
+	}
+	if ($task) {
+		Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
 	}
 
 	$needle = "-d $Distro --exec sleep infinity"
@@ -161,6 +175,7 @@ systemctl enable --now homelab-keepalive.service
 
 function Ensure-KeepAlive {
 	Start-WindowsKeepAlive
+	Ensure-WslVmIdleTimeout
 	if (Test-KeepAlive) {
 		Ok "keepalive process is running"
 		return
